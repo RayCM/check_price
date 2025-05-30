@@ -2,27 +2,45 @@ name: Check Flight Price
 
 on:
   schedule:
-    - cron: '*/30 * * * *'  # 每 30 分鐘執行一次（UTC）
-  workflow_dispatch:        # 支援手動觸發
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
 
 jobs:
   run-check:
     runs-on: ubuntu-latest
 
     steps:
-    - name: 下載程式碼
+    - name: Checkout repo
       uses: actions/checkout@v3
 
-    - name: 設定 Python
+    - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
 
-    - name: 安裝套件
-      run: pip install -r requirements.txt
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
 
-    - name: 執行查詢程式
+    - name: Install Chrome
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y wget unzip xvfb
+        wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+        sudo apt install -y ./google-chrome-stable_current_amd64.deb
+
+    - name: Install ChromeDriver
+      run: |
+        CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+')
+        CHROMEDRIVER_VERSION=$(curl -sS "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_VERSION")
+        wget -q "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip"
+        unzip chromedriver_linux64.zip
+        sudo mv chromedriver /usr/local/bin/
+        sudo chmod +x /usr/local/bin/chromedriver
+
+    - name: Run check_price
       env:
         LINE_ACCESS_TOKEN: ${{ secrets.LINE_ACCESS_TOKEN }}
         LINE_GROUP_ID: ${{ secrets.LINE_GROUP_ID }}
-      run: python check_price.py
+      run: |
+        python check_price.py

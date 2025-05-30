@@ -19,7 +19,7 @@ line_bot_api = MessagingApi(ApiClient(configuration))
 # ====== 查詢條件 ======
 TARGET_DEPART = '13:45'
 TARGET_ARRIVE = '13:05'
-PRICE_THRESHOLD = 42000
+PRICE_THRESHOLD = 45000
 
 # ====== 查詢網址 ======
 TRIP_URL = 'https://tw.trip.com/flights/ShowFareNext?lowpricesource=searchform&triptype=RT&class=Y&quantity=1&childqty=0&babyqty=0&jumptype=GoToNextJournay&dcity=tpe&acity=osl&aairport=osl&ddate=2025-09-27&dcityName=Taipei&acityName=Oslo&rdate=2025-10-11&currentseqno=2&criteriaToken=SGP_SGP-ALI_PIDReduce-fa581fb9-52dc-44f2-904a-c3713fc77085%5EList-e5e15878-8953-448b-b2c8-bafad1db43d2&shoppingid=SGP_SGP-ALI_PIDReduce-484e8781-9a5f-4912-8e4b-47cb424d78a9%5EList-20f7b900-7413-4173-87de-383261b6c2c6&groupKey=SGP_SGP-ALI_PIDReduce-484e8781-9a5f-4912-8e4b-47cb424d78a9%5EList-20f7b900-7413-4173-87de-383261b6c2c6&locale=zh-TW&curr=TWD'
