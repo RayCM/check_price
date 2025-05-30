@@ -83,4 +83,5 @@ def check_price():
             except Exception as e:
                 print("⚠️ 解析某航班失敗", e)
 
-    except
+    except Exception as e:
+        print("⚠️ 解析某航班失敗", e)
