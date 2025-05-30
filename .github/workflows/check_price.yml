@@ -2,8 +2,8 @@ name: Check Flight Price
 
 on:
   schedule:
-    - cron: '*/30 * * * *'
-  workflow_dispatch:
+    - cron: '*/30 * * * *'  # 每 30 分鐘執行一次（UTC）
+  workflow_dispatch:        # 可手動執行
 
 jobs:
   run-check:
@@ -18,9 +18,8 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Install dependencies
-      run: |
-        pip install -r requirements.txt
+    - name: Install Python packages
+      run: pip install -r requirements.txt
 
     - name: Install Chrome
       run: |
@@ -29,18 +28,15 @@ jobs:
         wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
         sudo apt install -y ./google-chrome-stable_current_amd64.deb
 
-    - name: Install ChromeDriver
+    - name: Install ChromeDriver (v114)
       run: |
-        CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+')
-        CHROMEDRIVER_VERSION=$(curl -sS "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_VERSION")
-        wget -q "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip"
+        wget -q https://chromedriver.storage.googleapis.com/114.0.5735.90/chromedriver_linux64.zip
         unzip chromedriver_linux64.zip
         sudo mv chromedriver /usr/local/bin/
         sudo chmod +x /usr/local/bin/chromedriver
 
-    - name: Run check_price
+    - name: Run check_price.py
       env:
         LINE_ACCESS_TOKEN: ${{ secrets.LINE_ACCESS_TOKEN }}
         LINE_GROUP_ID: ${{ secrets.LINE_GROUP_ID }}
-      run: |
-        python check_price.py
+      run: python check_price.py
