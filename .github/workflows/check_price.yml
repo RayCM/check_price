@@ -1,0 +1,28 @@
+name: Check Flight Price
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'  # 每 30 分鐘執行一次（UTC）
+  workflow_dispatch:        # 支援手動觸發
+
+jobs:
+  run-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 下載程式碼
+      uses: actions/checkout@v3
+
+    - name: 設定 Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: 安裝套件
+      run: pip install -r requirements.txt
+
+    - name: 執行查詢程式
+      env:
+        LINE_ACCESS_TOKEN: ${{ secrets.LINE_ACCESS_TOKEN }}
+        LINE_GROUP_ID: ${{ secrets.LINE_GROUP_ID }}
+      run: python check_price.py
