@@ -1,0 +1,7 @@
+services:
+  - type: cron
+    name: flight-checker-job
+    runtime: python
+    schedule: "*/30 * * * *"  # 每 30 分鐘 UTC 時區
+    buildCommand: ""
+    startCommand: "python check_price.py"
