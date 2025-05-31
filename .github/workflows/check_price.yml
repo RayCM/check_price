@@ -18,7 +18,7 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Install Python packages
+    - name: Install dependencies
       run: pip install -r requirements.txt
 
     - name: Install Chrome
@@ -40,3 +40,12 @@ jobs:
         LINE_ACCESS_TOKEN: ${{ secrets.LINE_ACCESS_TOKEN }}
         LINE_GROUP_ID: ${{ secrets.LINE_GROUP_ID }}
       run: python check_price.py
+
+    - name: Upload debug artifacts if failed
+      if: failure()
+      uses: actions/upload-artifact@v3
+      with:
+        name: debug-artifacts
+        path: |
+          page_debug.html
+          screenshot.png
