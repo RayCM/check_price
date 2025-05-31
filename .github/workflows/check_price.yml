@@ -2,8 +2,8 @@ name: Check Flight Price
 
 on:
   schedule:
-    - cron: '*/15 * * * *'  # 每 15 分鐘執行
-  workflow_dispatch:        # 可手動觸發
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
 
 jobs:
   run-check:
@@ -43,4 +43,9 @@ jobs:
 
     - name: Upload debug artifacts if failed
       if: failure()
-      uses: actions/upload-artifact@v3.
+      uses: actions/upload-artifact@8fae6bbeb0d8edcc6f1d4e6c74c9d2cc4e36c52a
+      with:
+        name: debug-artifacts
+        path: |
+          page_debug.html
+          screenshot.png
