@@ -77,11 +77,14 @@ def check_price():
                 print(f"📋 出發：{depart_time}，抵達：{arrive_time}，票價：{price}")
 
                 if depart_time == TARGET_DEPART and arrive_time == TARGET_ARRIVE:
-                    print("✅ 找到符合條件的航班")
+                    print("✅ 找到符合時間的航班")
                     found = True
                     if price <= PRICE_THRESHOLD:
+                        print("💰 價格也符合條件，將發送通知")
                         msg = f'🚨 發現低價票！\n出發：{depart_time} OSL\n抵達：{arrive_time} TPE\n票價：{price} 元\n👉 {TRIP_URL}'
                         send_line_notification(msg)
+                    else:
+                        print(f"⚠️ 價格太高：{price} > {PRICE_THRESHOLD}，不發送通知")
                     break
 
             except Exception as e:
