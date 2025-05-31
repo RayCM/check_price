@@ -19,6 +19,10 @@ TARGET_DEPART = '13:45'
 TARGET_ARRIVE = '13:05'
 PRICE_THRESHOLD = 42000
 TRIP_URL = os.getenv("TRIP")
+print("🔍 TRIP_URL 環境變數：", repr(TRIP_URL))
+
+if not TRIP_URL:
+    raise ValueError("❌ TRIP_URL 環境變數未正確設定")
 
 def send_line_notification(message):
     try:
