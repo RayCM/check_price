@@ -2,12 +2,12 @@ name: Check Flight Price
 
 on:
   schedule:
-    - cron: '*/15 * * * *'
-  workflow_dispatch:
+    - cron: '*/15 * * * *'  # 每 30 分鐘執行一次
+  workflow_dispatch:        # 允許手動執行
 
 jobs:
   run-check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04  # 使用穩定 runner
 
     steps:
     - name: Checkout repo
@@ -40,12 +40,3 @@ jobs:
         LINE_ACCESS_TOKEN: ${{ secrets.LINE_ACCESS_TOKEN }}
         LINE_GROUP_ID: ${{ secrets.LINE_GROUP_ID }}
       run: python check_price.py
-
-    - name: Upload debug artifacts if failed
-      if: failure()
-      uses: actions/upload-artifact@8fae6bbeb0d8edcc6f1d4e6c74c9d2cc4e36c52a
-      with:
-        name: debug-artifacts
-        path: |
-          page_debug.html
-          screenshot.png
