@@ -2,8 +2,8 @@ name: Check Flight Price
 
 on:
   schedule:
-    - cron: '*/30 * * * *'
-  workflow_dispatch:
+    - cron: '*/30 * * * *'  # 每 30 分鐘執行一次
+  workflow_dispatch:        # 允許手動執行
 
 jobs:
   run-check:
@@ -45,18 +45,25 @@ jobs:
         python check_price.py
         status=$?
         if [ $status -ne 0 ]; then
+          echo "script_failed=true" >> $GITHUB_ENV
           echo "script_failed=true" >> $GITHUB_OUTPUT
         else
+          echo "script_failed=false" >> $GITHUB_ENV
           echo "script_failed=false" >> $GITHUB_OUTPUT
         fi
 
     - name: 壓縮除錯檔案
-      if: steps.runscript.outputs.script_failed == 'true'
+      if: env.script_failed == 'true'
       run: |
-        zip debug-info.zip screenshot.png page_debug.html || echo "No files to zip"
+        files=""
+        [ -f screenshot.png ] && files+=" screenshot.png"
+        [ -f page_debug.html ] && files+=" page_debug.html"
+        if [ -n "$files" ]; then
+          zip debug-info.zip $files
+        fi
 
     - name: 上傳除錯檔案（debug-info.zip）
-      if: steps.runscript.outputs.script_failed == 'true'
+      if: env.script_failed == 'true'
       uses: actions/upload-artifact@v4
       with:
         name: debug-info
