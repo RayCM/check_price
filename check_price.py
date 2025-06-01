@@ -18,7 +18,7 @@ line_bot_api = MessagingApi(ApiClient(configuration))
 TARGET_DEPART = '13:45'
 TARGET_ARRIVE = '13:05'
 PRICE_THRESHOLD = 41000
-TRIP_URL = 'https://tw.trip.com/flights/ShowFareNext?lowpricesource=searchform&triptype=RT&class=Y&quantity=1&childqty=0&babyqty=0&jumptype=GoToNextJournay&dcity=tpe&acity=osl&dairport=tpe&aairport=osl&ddate=2025-09-27&dcityName=Taipei&acityName=Oslo&rdate=2025-10-11&currentseqno=2&criteriaToken=SGP_SGP-ALI_PIDReduce-c84c7dff-f5f2-484b-b53f-1540dee6dd69%5EList-cf326966-b6ac-4950-a9ac-fb78390da96b&shoppingid=SGP_SGP-ALI_PIDReduce-6d903762-203a-4973-bb80-86154df815bd%5EList-9868518b-f2bf-4b28-b370-686635e47359&groupKey=SGP_SGP-ALI_PIDReduce-6d903762-203a-4973-bb80-86154df815bd%5EList-9868518b-f2bf-4b28-b370-686635e47359&locale=zh-TW&curr=TWD'
+TRIP_URL = 'https://tw.trip.com/flights/showfarefirst?dcity=tpe&acity=osl&ddate=2025-09-27&rdate=2025-10-11&dairport=tpe&aairport=osl&triptype=rt&class=y&lowpricesource=searchform&quantity=1&searchboxarg=t&nonstoponly=off&locale=zh-TW&curr=TWD'
 
 def send_line_notification(message):
     try:
