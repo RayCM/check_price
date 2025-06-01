@@ -39,7 +39,7 @@ def extract_time_from_testid(testid):
 
 def check_price():
     print("🔍 開始查詢 Trip.com...")
-
+    options = Options()
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
