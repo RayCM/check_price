@@ -2,12 +2,12 @@ name: Check Flight Price
 
 on:
   schedule:
-    - cron: '*/15 * * * *'  # 每 30 分鐘執行一次
-  workflow_dispatch:        # 允許手動執行
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
 
 jobs:
   run-check:
-    runs-on: ubuntu-22.04  # 使用穩定 runner
+    runs-on: ubuntu-22.04
 
     steps:
     - name: Checkout repo
@@ -36,7 +36,22 @@ jobs:
         sudo chmod +x /usr/local/bin/chromedriver
 
     - name: Run check_price.py
+      id: runscript
       env:
         LINE_ACCESS_TOKEN: ${{ secrets.LINE_ACCESS_TOKEN }}
         LINE_GROUP_ID: ${{ secrets.LINE_GROUP_ID }}
-      run: python check_price.py
+      run: |
+        python check_price.py || echo "script_failed=true" >> $GITHUB_OUTPUT
+
+    - name: 壓縮除錯檔案
+      if: steps.runscript.outputs.script_failed == 'true'
+      run: |
+        zip debug-info.zip screenshot.png page_debug.html || echo "No files to zip"
+
+    - name: 上傳除錯檔案（debug-info.zip）
+      if: steps.runscript.outputs.script_failed == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: debug-info
+        path: debug-info.zip
+        if-no-files-found: ignore
