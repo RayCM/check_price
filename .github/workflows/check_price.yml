@@ -41,7 +41,14 @@ jobs:
         LINE_ACCESS_TOKEN: ${{ secrets.LINE_ACCESS_TOKEN }}
         LINE_GROUP_ID: ${{ secrets.LINE_GROUP_ID }}
       run: |
-        python check_price.py || echo "script_failed=true" >> $GITHUB_OUTPUT
+        set +e
+        python check_price.py
+        status=$?
+        if [ $status -ne 0 ]; then
+          echo "script_failed=true" >> $GITHUB_OUTPUT
+        else
+          echo "script_failed=false" >> $GITHUB_OUTPUT
+        fi
 
     - name: 壓縮除錯檔案
       if: steps.runscript.outputs.script_failed == 'true'

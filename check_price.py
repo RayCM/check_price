@@ -40,10 +40,10 @@ def extract_time_from_testid(testid):
 def check_price():
     print("🔍 開始查詢 Trip.com...")
 
-    options = Options()
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
+    options.add_argument('--remote-debugging-port=9222')
     options.add_argument(
         'user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     )
@@ -98,7 +98,7 @@ def check_price():
         with open("page_debug.html", "w", encoding="utf-8") as f:
             f.write(driver.page_source)
         driver.save_screenshot("screenshot.png")
-
+        print("📝 已儲存 page_debug.html 與 screenshot.png 作為除錯資料")
     finally:
         driver.quit()
         print("🧹 WebDriver 已關閉")
