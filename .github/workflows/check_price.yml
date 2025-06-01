@@ -2,7 +2,7 @@ name: Check Flight Price
 
 on:
   schedule:
-    - cron: '*/30 * * * *'  # 每 30 分鐘執行一次
+    - cron: '*/60 * * * *'  # 每 30 分鐘執行一次
   workflow_dispatch:        # 允許手動執行
 
 jobs:

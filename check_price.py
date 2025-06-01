@@ -17,8 +17,8 @@ line_bot_api = MessagingApi(ApiClient(configuration))
 # ===== 查詢條件 =====
 TARGET_DEPART = '13:45'
 TARGET_ARRIVE = '13:05'
-PRICE_THRESHOLD = 42000
-TRIP_URL = 'https://tw.trip.com/flights/ShowFareNext?lowpricesource=searchform&triptype=RT&class=Y&quantity=1&childqty=0&babyqty=0&jumptype=GoToNextJournay&dcity=tpe&acity=osl&aairport=osl&ddate=2025-09-27&dcityName=Taipei&acityName=Oslo&rdate=2025-10-11&currentseqno=2&criteriaToken=SGP_SGP-ALI_PIDReduce-2e3b5537-045c-4a89-a436-0a207726bed9%5EList-5b2734c6-6046-4c2e-9caa-cff3e16442b5&shoppingid=SGP_SGP-ALI_PIDReduce-e7c151ae-ffdb-4398-8397-a40d16aad98c%5EList-93e9edde-845d-4648-9af9-60dbcfe1a5eb&groupKey=SGP_SGP-ALI_PIDReduce-e7c151ae-ffdb-4398-8397-a40d16aad98c%5EList-93e9edde-845d-4648-9af9-60dbcfe1a5eb&locale=zh-TW&curr=TWD'
+PRICE_THRESHOLD = 41000
+TRIP_URL = 'https://tw.trip.com/flights/ShowFareNext?lowpricesource=searchform&triptype=RT&class=Y&quantity=1&childqty=0&babyqty=0&jumptype=GoToNextJournay&dcity=tpe&acity=osl&dairport=tpe&aairport=osl&ddate=2025-09-27&dcityName=Taipei&acityName=Oslo&rdate=2025-10-11&currentseqno=2&criteriaToken=SGP_SGP-ALI_PIDReduce-c84c7dff-f5f2-484b-b53f-1540dee6dd69%5EList-cf326966-b6ac-4950-a9ac-fb78390da96b&shoppingid=SGP_SGP-ALI_PIDReduce-6d903762-203a-4973-bb80-86154df815bd%5EList-9868518b-f2bf-4b28-b370-686635e47359&groupKey=SGP_SGP-ALI_PIDReduce-6d903762-203a-4973-bb80-86154df815bd%5EList-9868518b-f2bf-4b28-b370-686635e47359&locale=zh-TW&curr=TWD'
 
 def send_line_notification(message):
     try:
