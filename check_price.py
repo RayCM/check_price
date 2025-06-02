@@ -4,6 +4,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
 from linebot.v3.messaging import MessagingApi, Configuration, ApiClient
 from linebot.v3.messaging.models import TextMessage, PushMessageRequest
 
@@ -34,8 +35,20 @@ def send_line_notification(message):
 def extract_time_from_testid(testid):
     try:
         return testid.strip().split()[-1][:5]
-    except:
+    except Exception:
         return ''
+
+def save_debug_files(driver, error):
+    try:
+        if driver:
+            driver.save_screenshot("screenshot.png")
+            with open("page_debug.html", "w", encoding="utf-8") as f:
+                f.write(driver.page_source)
+        with open("run.log", "w", encoding="utf-8") as f:
+            f.write(str(error))
+        print("📝 已儲存 page_debug.html、screenshot.png 與 run.log 作為除錯資料")
+    except Exception as e:
+        print(f"⚠️ 儲存除錯資料失敗: {e}")
 
 def check_price():
     print("🔍 開始查詢 Trip.com...")
@@ -48,9 +61,10 @@ def check_price():
         'user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     )
 
-    driver = webdriver.Chrome(options=options)
-
+    driver = None
     try:
+        driver = webdriver.Chrome(options=options)
+
         print("🌐 前往 Trip.com 網頁中...")
         driver.get(TRIP_URL)
 
@@ -93,19 +107,19 @@ def check_price():
         if not found:
             print("❗ 沒有找到符合條件的航班")
 
+    except (TimeoutException, NoSuchElementException, WebDriverException) as e:
+        print("🚫 Selenium 錯誤：", e)
+        save_debug_files(driver, e)
+        # 這裡可以考慮發LINE通知錯誤
+        # send_line_notification(f"⚠️ 查詢失敗: {e}")
     except Exception as e:
-        print("🚫 整體錯誤：", e)
-        with open("page_debug.html", "w", encoding="utf-8") as f:
-            f.write(driver.page_source)
-        driver.save_screenshot("screenshot.png")
-        with open("run.log", "w", encoding="utf-8") as f:
-            f.write(str(e))
-        print("📝 已儲存 page_debug.html、screenshot.png 與 run.log 作為除錯資料")
-        # 可選：發送 LINE 告知錯誤
-        # send_line_notification("⚠️ 查詢失敗，請查看 GitHub Artifact")
+        print("🚫 其他錯誤：", e)
+        save_debug_files(driver, e)
+        # send_line_notification(f"⚠️ 查詢失敗: {e}")
     finally:
-        driver.quit()
-        print("🧹 WebDriver 已關閉")
+        if driver:
+            driver.quit()
+            print("🧹 WebDriver 已關閉")
 
 if __name__ == "__main__":
     check_price()

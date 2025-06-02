@@ -1,79 +1,50 @@
-name: Check Flight Price
+name: Check Price
 
 on:
   schedule:
-    - cron: '*/60 * * * *'  # 每 60 分鐘執行一次
-  workflow_dispatch:        # 允許手動執行
+    - cron: '0 * * * *'   # 每小時執行一次，你可以依需求調整
+  workflow_dispatch:
 
 jobs:
-  run-check:
-    runs-on: ubuntu-22.04
+  check_price:
+    runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repo
-      uses: actions/checkout@v3
+      - name: Checkout repo
+        uses: actions/checkout@v3
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.10
 
-    - name: Install dependencies
-      run: pip install -r requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install selenium line-bot-sdk
 
-    - name: Install Chrome
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y wget unzip xvfb
-        wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-        sudo apt install -y ./google-chrome-stable_current_amd64.deb
+      - name: Run price check script
+        env:
+          LINE_ACCESS_TOKEN: ${{ secrets.LINE_ACCESS_TOKEN }}
+          LINE_GROUP_ID: ${{ secrets.LINE_GROUP_ID }}
+        run: |
+          set +e
+          python check_price.py 2>&1 | tee run.log
+          status=${PIPESTATUS[0]}
+          if [ $status -ne 0 ]; then
+            echo "script_failed=true" >> $GITHUB_ENV
+            echo "script_failed=true" >> $GITHUB_OUTPUT
+          else
+            echo "script_failed=false" >> $GITHUB_ENV
+            echo "script_failed=false" >> $GITHUB_OUTPUT
+          fi
 
-    - name: Install ChromeDriver v137
-      run: |
-        wget -q https://storage.googleapis.com/chrome-for-testing-public/137.0.7151.55/linux64/chromedriver-linux64.zip
-        unzip chromedriver-linux64.zip
-        sudo mv chromedriver-linux64/chromedriver /usr/local/bin/
-        sudo chmod +x /usr/local/bin/chromedriver
-
-    - name: Run check_price.py
-      id: runscript
-      env:
-        LINE_ACCESS_TOKEN: ${{ secrets.LINE_ACCESS_TOKEN }}
-        LINE_GROUP_ID: ${{ secrets.LINE_GROUP_ID }}
-      run: |
-        set +e
-        python check_price.py 2>&1 | tee run.log
-        status=${PIPESTATUS[0]}
-        if [ $status -ne 0 ]; then
-          echo "script_failed=true" >> $GITHUB_ENV
-          echo "script_failed=true" >> $GITHUB_OUTPUT
-        else
-          echo "script_failed=false" >> $GITHUB_ENV
-          echo "script_failed=false" >> $GITHUB_OUTPUT
-        fi
-
-    - name: 檢查 script_failed 的值
-      run: echo "script_failed=${{ env.script_failed }}"
-
-    - name: 檢查檔案是否存在
-      run: |
-        if [ -f screenshot.png ]; then echo "screenshot.png exists"; else echo "screenshot.png not found"; fi
-        if [ -f page_debug.html ]; then echo "page_debug.html exists"; else echo "page_debug.html not found"; fi
-
-    - name: 壓縮除錯檔案
-      if: env.script_failed == 'true'
-      run: |
-        files=""
-        [ -f screenshot.png ] && files+=" screenshot.png"
-        [ -f page_debug.html ] && files+=" page_debug.html"
-        if [ -n "$files" ]; then
-          zip debug-info.zip $files
-        fi
-
-    - name: 上傳除錯檔案（debug-info.zip）
-      if: env.script_failed == 'true'
-      uses: actions/upload-artifact@v4
-      with:
-        name: debug-info
-        path: debug-info.zip
-        if-no-files-found: ignore
+      - name: Upload debug artifacts
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: debug-artifacts
+          path: |
+            screenshot.png
+            page_debug.html
+            run.log
