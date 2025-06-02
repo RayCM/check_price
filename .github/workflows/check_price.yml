@@ -3,14 +3,12 @@ name: Test Upload Artifact
 on: [push]
 
 jobs:
-  build:
+  test-artifact:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Create file
-        run: echo "Hello" > test.txt
-      - name: Upload artifact
-        uses: actions/upload-artifact@v3
+      - run: echo "test" > test.txt
+      - uses: actions/upload-artifact@v3
         with:
           name: test-artifact
           path: test.txt
