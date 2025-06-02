@@ -2,8 +2,8 @@ name: Check Flight Price
 
 on:
   schedule:
-    - cron: '0 * * * *'  # 每小時執行一次
-  workflow_dispatch:      # 允許手動執行
+    - cron: '*/60 * * * *'  # 每 60 分鐘執行一次
+  workflow_dispatch:        # 允許手動執行
 
 jobs:
   run-check:
@@ -52,6 +52,14 @@ jobs:
           echo "script_failed=false" >> $GITHUB_OUTPUT
         fi
 
+    - name: 檢查 script_failed 的值
+      run: echo "script_failed=${{ env.script_failed }}"
+
+    - name: 檢查檔案是否存在
+      run: |
+        if [ -f screenshot.png ]; then echo "screenshot.png exists"; else echo "screenshot.png not found"; fi
+        if [ -f page_debug.html ]; then echo "page_debug.html exists"; else echo "page_debug.html not found"; fi
+
     - name: 壓縮除錯檔案
       if: env.script_failed == 'true'
       run: |
@@ -69,11 +77,3 @@ jobs:
         name: debug-info
         path: debug-info.zip
         if-no-files-found: ignore
-
-    - name: 上傳執行輸出 log（run.log）
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: run-log
-        path: run.log
-        if-no-files-found: warn
