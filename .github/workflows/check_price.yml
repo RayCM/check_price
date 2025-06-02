@@ -2,8 +2,8 @@ name: Check Flight Price
 
 on:
   schedule:
-    - cron: '*/60 * * * *'  # 每 30 分鐘執行一次
-  workflow_dispatch:        # 允許手動執行
+    - cron: '0 * * * *'  # 每小時執行一次
+  workflow_dispatch:
 
 jobs:
   run-check:
@@ -42,7 +42,7 @@ jobs:
         LINE_GROUP_ID: ${{ secrets.LINE_GROUP_ID }}
       run: |
         set +e
-        python check_price.py
+        python check_price.py > run.log 2>&1
         status=$?
         if [ $status -ne 0 ]; then
           echo "script_failed=true" >> $GITHUB_ENV
@@ -58,6 +58,7 @@ jobs:
         files=""
         [ -f screenshot.png ] && files+=" screenshot.png"
         [ -f page_debug.html ] && files+=" page_debug.html"
+        [ -f run.log ] && files+=" run.log"
         if [ -n "$files" ]; then
           zip debug-info.zip $files
         fi

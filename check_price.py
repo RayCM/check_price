@@ -98,7 +98,11 @@ def check_price():
         with open("page_debug.html", "w", encoding="utf-8") as f:
             f.write(driver.page_source)
         driver.save_screenshot("screenshot.png")
-        print("📝 已儲存 page_debug.html 與 screenshot.png 作為除錯資料")
+        with open("run.log", "w", encoding="utf-8") as f:
+            f.write(str(e))
+        print("📝 已儲存 page_debug.html、screenshot.png 與 run.log 作為除錯資料")
+        # 可選：發送 LINE 告知錯誤
+        # send_line_notification("⚠️ 查詢失敗，請查看 GitHub Artifact")
     finally:
         driver.quit()
         print("🧹 WebDriver 已關閉")
