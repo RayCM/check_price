@@ -3,7 +3,7 @@ name: Check Flight Price
 on:
   schedule:
     - cron: '0 * * * *'  # 每小時執行一次
-  workflow_dispatch:
+  workflow_dispatch:      # 允許手動執行
 
 jobs:
   run-check:
@@ -42,8 +42,8 @@ jobs:
         LINE_GROUP_ID: ${{ secrets.LINE_GROUP_ID }}
       run: |
         set +e
-        python check_price.py > run.log 2>&1
-        status=$?
+        python check_price.py 2>&1 | tee run.log
+        status=${PIPESTATUS[0]}
         if [ $status -ne 0 ]; then
           echo "script_failed=true" >> $GITHUB_ENV
           echo "script_failed=true" >> $GITHUB_OUTPUT
@@ -58,7 +58,6 @@ jobs:
         files=""
         [ -f screenshot.png ] && files+=" screenshot.png"
         [ -f page_debug.html ] && files+=" page_debug.html"
-        [ -f run.log ] && files+=" run.log"
         if [ -n "$files" ]; then
           zip debug-info.zip $files
         fi
@@ -70,3 +69,11 @@ jobs:
         name: debug-info
         path: debug-info.zip
         if-no-files-found: ignore
+
+    - name: 上傳執行輸出 log（run.log）
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: run-log
+        path: run.log
+        if-no-files-found: warn
