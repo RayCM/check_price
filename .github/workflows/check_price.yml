@@ -14,19 +14,24 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install Chrome and ChromeDriver
+      - name: Install system dependencies
         run: |
-          # 更新套件列表並忽略非關鍵錯誤
           sudo apt-get update || true
-          sudo apt-get install -y --no-install-recommends google-chrome-stable || true
+          sudo apt-get install -y --no-install-recommends jq google-chrome-stable
+      - name: Install ChromeDriver
+        run: |
           # 獲取 Chrome 版本
           CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+\.\d+' || echo "136.0.7103.113")
           echo "Chrome version: $CHROME_VERSION"
-          # 設置 ChromeDriver 版本為 Chrome 版本
-          CHROMEDRIVER_VERSION=$CHROME_VERSION
-          echo "Using ChromeDriver version: $CHROMEDRIVER_VERSION"
+          # 從 Chrome for Testing JSON API 獲取 ChromeDriver 下載 URL
+          CHROMEDRIVER_URL=$(curl -s https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json | jq -r '.channels.Stable.downloads.chromedriver[] | select(.platform == "linux64") | .url')
+          if [ -z "$CHROMEDRIVER_URL" ]; then
+            echo "無法獲取 ChromeDriver 下載 URL，退出"
+            exit 1
+          fi
+          echo "ChromeDriver download URL: $CHROMEDRIVER_URL"
           # 下載 ChromeDriver
-          wget -q --tries=3 "[invalid url, do not cite] -O chromedriver.zip || { echo "下載 ChromeDriver 失敗"; exit 1; }
+          wget -q --tries=3 "$CHROMEDRIVER_URL" -O chromedriver.zip || { echo "下載 ChromeDriver 失敗"; exit 1; }
           # 解壓 ChromeDriver
           unzip chromedriver.zip || { echo "解壓 ChromeDriver 失敗"; exit 1; }
           # 移動 ChromeDriver
