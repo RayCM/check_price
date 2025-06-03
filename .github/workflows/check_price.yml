@@ -6,9 +6,10 @@ jobs:
   test-artifact:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: echo "test" > test.txt
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: test-artifact
           path: test.txt
+          retention-days: 5  # 可選：設定 artifact 保留 5 天｀
