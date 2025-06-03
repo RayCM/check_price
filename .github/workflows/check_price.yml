@@ -25,12 +25,14 @@ jobs:
           # 嘗試獲取 ChromeDriver 版本
           CHROMEDRIVER_VERSION=$(curl -sS "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_VERSION" || echo "")
           if [ -z "$CHROMEDRIVER_VERSION" ]; then
-            echo "無法獲取 ChromeDriver 版本，使用 Chrome 版本 $CHROME_VERSION 作為後備"
-            CHROMEDRIVER_VERSION=$CHROME_VERSION
+            echo "無法獲取 ChromeDriver 版本，嘗試使用完整 Chrome 版本"
+            FULL_CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+\.\d+')
+            CHROMEDRIVER_VERSION=$FULL_CHROME_VERSION
+            echo "使用後備 ChromeDriver 版本: $CHROMEDRIVER_VERSION"
           fi
           echo "ChromeDriver version: $CHROMEDRIVER_VERSION"
           # 下載並安裝 ChromeDriver
-          wget -q "https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip" || { echo "下載 ChromeDriver 失敗"; exit 1; }
+          wget -q --tries=3 "https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip" || { echo "下載 ChromeDriver 失敗"; exit 1; }
           unzip chromedriver_linux64.zip || { echo "解壓 ChromeDriver 失敗"; exit 1; }
           sudo mv chromedriver /usr/local/bin/ || { echo "移動 ChromeDriver 失敗"; exit 1; }
           sudo chmod +x /usr/local/bin/chromedriver
