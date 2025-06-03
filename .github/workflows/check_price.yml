@@ -17,28 +17,22 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update || true
-          sudo apt-get install -y --no-install-recommends jq google-chrome-stable
-      - name: Install ChromeDriver
+          sudo apt-get install -y --no-install-recommends unzip
+      - name: Install Chrome and ChromeDriver
         run: |
-          # 獲取 Chrome 版本
-          CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+\.\d+' || echo "136.0.7103.113")
-          echo "Chrome version: $CHROME_VERSION"
-          # 從 Chrome for Testing JSON API 獲取 ChromeDriver 下載 URL
-          CHROMEDRIVER_URL=$(curl -s https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json | jq -r '.channels.Stable.downloads.chromedriver[] | select(.platform == "linux64") | .url')
-          if [ -z "$CHROMEDRIVER_URL" ]; then
-            echo "無法獲取 ChromeDriver 下載 URL，退出"
-            exit 1
-          fi
-          echo "ChromeDriver download URL: $CHROMEDRIVER_URL"
-          # 下載 ChromeDriver
-          wget -q --tries=3 "$CHROMEDRIVER_URL" -O chromedriver.zip || { echo "下載 ChromeDriver 失敗"; exit 1; }
-          # 解壓 ChromeDriver
-          unzip chromedriver.zip || { echo "解壓 ChromeDriver 失敗"; exit 1; }
-          # 移動 ChromeDriver
+          # 下載並安裝 Chrome 136.0.7103.113
+          wget -q --tries=3 "https://storage.googleapis.com/chrome-for-testing-public/136.0.7103.113/linux64/chrome-linux64.zip" -O chrome-linux64.zip || { echo "下載 Chrome 失敗"; exit 1; }
+          unzip chrome-linux64.zip || { echo "解壓 Chrome 失敗"; exit 1; }
+          sudo mv chrome-linux64/chrome /usr/local/bin/ || { echo "移動 Chrome 失敗"; exit 1; }
+          sudo mv chrome-linux64/chrome-sandbox /usr/local/bin/ || { echo "移動 Chrome sandbox 失敗"; exit 1; }
+          # 下載並安裝 ChromeDriver 136.0.7103.113
+          wget -q --tries=3 "https://storage.googleapis.com/chrome-for-testing-public/136.0.7103.113/linux64/chromedriver-linux64.zip" -O chromedriver-linux64.zip || { echo "下載 ChromeDriver 失敗"; exit 1; }
+          unzip chromedriver-linux64.zip || { echo "解壓 ChromeDriver 失敗"; exit 1; }
           sudo mv chromedriver-linux64/chromedriver /usr/local/bin/ || { echo "移動 ChromeDriver 失敗"; exit 1; }
-          sudo chmod +x /usr/local/bin/chromedriver
+          # 設置執行權限
+          sudo chmod +x /usr/local/bin/chrome /usr/local/bin/chrome-sandbox /usr/local/bin/chromedriver
           # 清理臨時檔案
-          rm -rf chromedriver.zip chromedriver-linux64
+          rm -rf chrome-linux64.zip chromedriver-linux64.zip chrome-linux64 chromedriver-linux64
           # 驗證版本
           google-chrome --version
           chromedriver --version
