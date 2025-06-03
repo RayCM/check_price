@@ -22,18 +22,14 @@ jobs:
           # 獲取 Chrome 版本
           CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+\.\d+' || echo "136.0.7103.113")
           echo "Chrome version: $CHROME_VERSION"
-          # 使用與 Chrome 版本相容的 ChromeDriver 版本
-          CHROMEDRIVER_VERSION="136.0.7103.73"  # 已知相容版本
+          # 設置 ChromeDriver 版本為 Chrome 版本
+          CHROMEDRIVER_VERSION=$CHROME_VERSION
           echo "Using ChromeDriver version: $CHROMEDRIVER_VERSION"
-          # 檢查 ChromeDriver 檔案是否存在
-          if curl -s --head "https://storage.googleapis.com/chrome-for-testing-public/$CHROMEDRIVER_VERSION/linux64/chromedriver-linux64.zip" | head -n 1 | grep -q "200 OK"; then
-            echo "ChromeDriver 檔案存在，開始下載"
-            wget -q --tries=3 "https://storage.googleapis.com/chrome-for-testing-public/$CHROMEDRIVER_VERSION/linux64/chromedriver-linux64.zip" -O chromedriver.zip || { echo "下載 ChromeDriver 失敗"; exit 1; }
-          else
-            echo "ChromeDriver 版本 $CHROMEDRIVER_VERSION 不存在，無法下載"
-            exit 1
-          fi
-          unzip chromedriver.zip chromedriver-linux64/chromedriver || { echo "解壓 ChromeDriver 失敗"; exit 1; }
+          # 下載 ChromeDriver
+          wget -q --tries=3 "[invalid url, do not cite] -O chromedriver.zip || { echo "下載 ChromeDriver 失敗"; exit 1; }
+          # 解壓 ChromeDriver
+          unzip chromedriver.zip || { echo "解壓 ChromeDriver 失敗"; exit 1; }
+          # 移動 ChromeDriver
           sudo mv chromedriver-linux64/chromedriver /usr/local/bin/ || { echo "移動 ChromeDriver 失敗"; exit 1; }
           sudo chmod +x /usr/local/bin/chromedriver
           # 清理臨時檔案
