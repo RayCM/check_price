@@ -1,15 +1,45 @@
-name: Test Upload Artifact
+name: Run Check Price Script
 
-on: [push]
+on:
+  schedule:
+    - cron: '0 * * * *'  # 每小時整點執行
 
 jobs:
-  test-artifact:
+  run-check-price:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: echo "test" > test.txt
-      - uses: actions/upload-artifact@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          name: test-artifact
-          path: test.txt
-          retention-days: 5  # 可選：設定 artifact 保留 5 天｀
+          python-version: '3.11'  # 使用 Python 3.11，可根據需要調整
+      - name: Install Chrome and ChromeDriver
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+          # 安裝與 Chrome 版本匹配的 ChromeDriver
+          CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+')
+          CHROMEDRIVER_VERSION=$(curl -sS "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_VERSION")
+          wget -q "https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip"
+          unzip chromedriver_linux64.zip
+          sudo mv chromedriver /usr/local/bin/
+          sudo chmod +x /usr/local/bin/chromedriver
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install selenium line-bot-sdk==3.11.0 requests
+      - name: Run check_price.py
+        env:
+          LINE_ACCESS_TOKEN: ${{ secrets.LINE_ACCESS_TOKEN }}
+          LINE_GROUP_ID: ${{ secrets.LINE_GROUP_ID }}
+        run: python check_price.py
+      - name: Upload debug artifacts
+        if: failure()  # 僅在工作失敗時上傳
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-files
+          path: |
+            screenshot.png
+            page_debug.html
+            run.log
+          retention-days: 5
