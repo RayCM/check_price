@@ -19,7 +19,11 @@ line_bot_api = MessagingApi(ApiClient(configuration))
 TARGET_DEPART = '13:45'
 TARGET_ARRIVE = '13:05'
 PRICE_THRESHOLD = 41000
-TRIP_URL = 'https://tw.trip.com/flights/ShowFareNext?lowpricesource=searchform&triptype=RT&class=Y&quantity=1&childqty=0&babyqty=0&jumptype=GoToNextJournay&dcity=tpe&acity=osl&dairport=tpe&aairport=osl&ddate=2025-09-27&dcityName=Taipei&acityName=Oslo&rdate=2025-10-11&currentseqno=2&criteriaToken=SGP_SGP-ALI_PIDReduce-9db67794-efbd-4f09-95b1-d7f8f8597253%5EList-566353b4-0b2b-450b-a302-c23d2a61e7d3&shoppingid=SGP_SGP-ALI_PIDReduce-43c8701d-1efc-4728-a699-4f7bddaf2879%5EList-c6eb2085-c643-4e46-a808-0e18fd682895&groupKey=SGP_SGP-ALI_PIDReduce-43c8701d-1efc-4728-a699-4f7bddaf2879%5EList-c6eb2085-c643-4e46-a808-0e18fd682895&locale=zh-TW&curr=TWD'
+BASE_URL = 'https://tw.trip.com/flights/'
+DEPART_CITY = 'TPE'
+ARRIVE_CITY = 'OSL'
+DEPART_DATE = '2025-09-27'
+RETURN_DATE = '2025-10-11'
 
 def send_line_notification(message):
     try:
@@ -65,19 +69,52 @@ def check_price():
     try:
         driver = webdriver.Chrome(options=options)
 
-        print("🌐 前往 Trip.com 網頁中...")
-        driver.get(TRIP_URL)
+        print("🌐 前往 Trip.com 首頁...")
+        driver.get(BASE_URL)
 
-        print("⌛ 等待票價資料出現...")
-        WebDriverWait(driver, 90).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, '[data-price]'))
-        )
+        print("📝 填寫搜尋條件...")
+        wait = WebDriverWait(driver, 30)
 
+        # 選擇來回票
+        round_trip = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="flight-search-trip-type-round-trip"]')))
+        round_trip.click()
+
+        # 輸入出發地
+        depart_input = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="flight-search-departure-city-input"]')))
+        depart_input.clear()
+        depart_input.send_keys(DEPART_CITY)
+        wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="flight-search-departure-city-TPE"]'))).click()
+
+        # 輸入目的地
+        arrive_input = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="flight-search-arrival-city-input"]')))
+        arrive_input.clear()
+        arrive_input.send_keys(ARRIVE_CITY)
+        wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="flight-search-arrival-city-OSL"]'))).click()
+
+        # 選擇去程日期
+        depart_date_input = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="flight-search-departure-date-input"]')))
+        depart_date_input.click()
+        wait.until(EC.element_to_be_clickable((By.XPATH, f'//div[@data-testid="calendar-day-{DEPART_DATE}"]'))).click()
+
+        # 選擇回程日期
+        return_date_input = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="flight-search-return-date-input"]')))
+        return_date_input.click()
+        wait.until(EC.element_to_be_clickable((By.XPATH, f'//div[@data-testid="calendar-day-{RETURN_DATE}"]'))).click()
+
+        # 提交搜尋
+        search_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="flight-search-submit-button"]')))
+        search_button.click()
+
+        print("⌛ 等待搜尋結果頁面...")
+        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '[data-price]')))
+        trip_url = driver.current_url
+        print(f"🔗 獲取搜尋結果 URL: {trip_url}")
+
+        print("✈️ 解析航班資料...")
         cards = driver.find_elements(By.CSS_SELECTOR, '.result-item')
         print(f"✈️ 找到 {len(cards)} 筆航班")
 
         found = False
-
         for card in cards:
             try:
                 depart = card.find_element(By.CSS_SELECTOR, '.is-departure_2a2b .time_cbcc').get_attribute('data-testid')
@@ -95,7 +132,7 @@ def check_price():
                     found = True
                     if price <= PRICE_THRESHOLD:
                         print("💰 價格也符合條件，將發送通知")
-                        msg = f'🚨 發現低價票！\n出發：{depart_time} OSL\n抵達：{arrive_time} TPE\n票價：{price} 元\n👉 {TRIP_URL}'
+                        msg = f'🚨 發現低價票！\n出發：{depart_time} OSL\n抵達：{arrive_time} TPE\n票價：{price} 元\n👉 {trip_url}'
                         send_line_notification(msg)
                     else:
                         print(f"⚠️ 價格太高：{price} > {PRICE_THRESHOLD}，不發送通知")
@@ -110,7 +147,6 @@ def check_price():
     except (TimeoutException, NoSuchElementException, WebDriverException) as e:
         print("🚫 Selenium 錯誤：", e)
         save_debug_files(driver, e)
-        # 這裡可以考慮發LINE通知錯誤
         # send_line_notification(f"⚠️ 查詢失敗: {e}")
     except Exception as e:
         print("🚫 其他錯誤：", e)
