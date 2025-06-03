@@ -23,10 +23,10 @@ jobs:
           CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+' || echo "136.0.7103")
           echo "Chrome version: $CHROME_VERSION"
           # 嘗試獲取 ChromeDriver 版本
-          CHROMEDRIVER_VERSION=$(curl -sS "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_VERSION" || echo "")
-          if [ -z "$CHROMEDRIVER_VERSION" ]; then
+          CHROMEDRIVER_VERSION=$(curl -sS "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_VERSION" 2>/dev/null)
+          if [ -z "$CHROMEDRIVER_VERSION" ] || echo "$CHROMEDRIVER_VERSION" | grep -q "Error"; then
             echo "無法獲取 ChromeDriver 版本，嘗試使用完整 Chrome 版本"
-            FULL_CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+\.\d+')
+            FULL_CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+\.\d+' || echo "136.0.7103.113")
             CHROMEDRIVER_VERSION=$FULL_CHROME_VERSION
             echo "使用後備 ChromeDriver 版本: $CHROMEDRIVER_VERSION"
           fi
