@@ -3,6 +3,7 @@ name: Run Check Price Script
 on:
   schedule:
     - cron: '0 * * * *'  # 每小時整點執行
+  workflow_dispatch:  # 允許手動觸發
 
 jobs:
   run-check-price:
@@ -12,12 +13,11 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'  # 使用 Python 3.11，可根據需要調整
+          python-version: '3.11'
       - name: Install Chrome and ChromeDriver
         run: |
           sudo apt-get update
           sudo apt-get install -y google-chrome-stable
-          # 安裝與 Chrome 版本匹配的 ChromeDriver
           CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+')
           CHROMEDRIVER_VERSION=$(curl -sS "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_VERSION")
           wget -q "https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip"
@@ -34,7 +34,7 @@ jobs:
           LINE_GROUP_ID: ${{ secrets.LINE_GROUP_ID }}
         run: python check_price.py
       - name: Upload debug artifacts
-        if: failure()  # 僅在工作失敗時上傳
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: debug-files
