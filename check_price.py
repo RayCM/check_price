@@ -26,7 +26,7 @@ DEPART_CITY = 'TPE'
 ARRIVE_CITY = 'OSL'
 DEPART_DATE = '2025-09-27'  # 目標出發日期
 RETURN_DATE = '2025-10-11'  # 目標回程日期
-FALLBACK_DEPART_DATE = '2025-06-07'  # 備用出發日期（當目標日期不可用時）
+FALLBACK_DEPART_DATE = '2025-06-07'  # 備用出發日期
 FALLBACK_RETURN_DATE = '2025-06-14'  # 備用回程日期
 
 def send_line_notification(message):
@@ -77,7 +77,7 @@ def try_form_action(description, action, max_attempts=3):
     return False
 
 def navigate_to_month(driver, wait, target_month):
-    max_attempts = 12  # 最多嘗試 12 次（一年內的月份）
+    max_attempts = 12
     attempts = 0
     while attempts < max_attempts:
         try:
@@ -89,12 +89,13 @@ def navigate_to_month(driver, wait, target_month):
 
             next_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '.c-fuzzy-calendar-icon-next')))
             driver.execute_script("arguments[0].scrollIntoView(true);", next_button)
-            time.sleep(1)  # 增加延遲確保按鈕可點擊
+            time.sleep(1)  # 確保按鈕可見
             driver.execute_script("arguments[0].click();", next_button)
             print(f"🔄 已點擊下一月按鈕，等待日曆更新...")
 
+            # 等待新月份加載
             wait.until(lambda d: d.find_element(By.CSS_SELECTOR, '.c-fuzzy-calendar-month__title').text != current_month or 
-                       EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days')))
+                       EC.presence_of_all_elements_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days li')))
             attempts += 1
         except (TimeoutException, NoSuchElementException, WebDriverException) as e:
             print(f"⚠️ 無法定位月份標題或下一月按鈕，嘗試 {attempts + 1}/{max_attempts}：{str(e)}")
@@ -108,7 +109,7 @@ def select_date(driver, wait, date_input, target_date, target_month, fallback_da
     wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days')))
     
     if not navigate_to_month(driver, wait, target_month):
-        print(f"⚠️ 無法導航至 {target_month}，可能日期尚未開放")
+        print(f"⚠️ 無法導航至 {target_month}，可能日期尚未正確加載")
         if fallback_date and fallback_month:
             print(f"🔄 嘗試使用備用日期：{fallback_date} ({fallback_month})")
             if not navigate_to_month(driver, wait, fallback_month):
@@ -118,17 +119,20 @@ def select_date(driver, wait, date_input, target_date, target_month, fallback_da
             raise Exception(f"無法導航至 {target_month}，且無備用日期")
     
     try:
-        date_element = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, f'li[data-date="{target_date}"]')))
+        # 確保日期元素可見並可點擊
+        date_element = wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, f'li[data-date="{target_date}"]')))
+        wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, f'li[data-date="{target_date}"]')))
         driver.execute_script("arguments[0].scrollIntoView(true);", date_element)
         time.sleep(0.5)
         driver.execute_script("arguments[0].click();", date_element)
         print(f"✅ 成功選擇日期：{target_date}")
         return target_date
     except TimeoutException:
-        print(f"⚠️ 無法選擇日期 {target_date}，可能日期尚未開放或選擇器失效")
+        print(f"⚠️ 無法選擇日期 {target_date}，可能元素未正確加載")
         if fallback_date:
             print(f"🔄 嘗試使用備用日期：{fallback_date}")
-            date_element = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, f'li[data-date="{fallback_date}"]')))
+            date_element = wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, f'li[data-date="{fallback_date}"]')))
+            wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, f'li[data-date="{fallback_date}"]')))
             driver.execute_script("arguments[0].scrollIntoView(true);", date_element)
             time.sleep(0.5)
             driver.execute_script("arguments[0].click();", date_element)
@@ -186,7 +190,7 @@ def check_price():
             )
         )(wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-testid="search_city_to0_wrapper"]')))))
 
-        # 選擇去程日期，並提供備用日期
+        # 選擇去程日期
         final_depart_date = try_form_action("選擇去程日期", lambda: select_date(
             driver,
             wait,
@@ -197,7 +201,7 @@ def check_price():
             '2025年6月'
         ))
 
-        # 選擇回程日期，並提供備用日期
+        # 選擇回程日期
         final_return_date = try_form_action("選擇回程日期", lambda: select_date(
             driver,
             wait,
