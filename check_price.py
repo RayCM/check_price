@@ -68,6 +68,17 @@ def try_form_action(description, action, max_attempts=3):
             if attempt == max_attempts - 1:
                 raise
 
+def navigate_to_month(driver, wait, target_month):
+    current_month = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__title'))).text
+    max_attempts = 12  # 最多嘗試 12 次（一年內的月份）
+    attempts = 0
+    while current_month != target_month and attempts < max_attempts:
+        driver.find_element(By.CSS_SELECTOR, '.c-fuzzy-calendar-icon-next').click()
+        time.sleep(1)  # 等待日曆更新
+        current_month = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__title'))).text
+        attempts += 1
+    return current_month == target_month
+
 def check_price():
     print("🔍 開始查詢 Trip.com...")
     options = Options()
@@ -130,12 +141,8 @@ def check_price():
                 # 等待日曆加載
                 wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days'))),
                 # 導航至 9 月
-                lambda: None if wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__title'))).text == '2025年9月' else (
-                    driver.find_element(By.CSS_SELECTOR, '.c-fuzzy-calendar-icon-next').click(),
-                    time.sleep(1),
-                    # 重複檢查直到到達 9 月
-                    [driver.find_element(By.CSS_SELECTOR, '.c-fuzzy-calendar-icon-next').click() or time.sleep(1) for _ in range(10) if wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__title'))).text != '2025年9月']
-                ),
+                if not navigate_to_month(driver, wait, '2025年9月'):
+                    raise Exception("無法導航至 2025年9月"),
                 # 選擇日期
                 wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, f'li[data-date="{DEPART_DATE}"]'))).click()
             )
@@ -147,12 +154,8 @@ def check_price():
                 # 等待日曆加載
                 wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days'))),
                 # 導航至 10 月
-                lambda: None if wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__title'))).text == '2025年10月' else (
-                    driver.find_element(By.CSS_SELECTOR, '.c-fuzzy-calendar-icon-next').click(),
-                    time.sleep(1),
-                    # 重複檢查直到到達 10 月
-                    [driver.find_element(By.CSS_SELECTOR, '.c-fuzzy-calendar-icon-next').click() or time.sleep(1) for _ in range(10) if wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__title'))).text != '2025年10月']
-                ),
+                if not navigate_to_month(driver, wait, '2025年10月'):
+                    raise Exception("無法導航至 2025年10月"),
                 # 選擇日期
                 wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, f'li[data-date="{RETURN_DATE}"]'))).click()
             )
