@@ -113,9 +113,9 @@ def handle_popups(driver, wait):
 
 def wait_for_page_stable(driver):
     try:
-        # 等待頁面處於穩定狀態（檢查 document.readyState）
+        # 等待頁面處於穩定狀態
         driver.execute_script("return document.readyState === 'complete';")
-        time.sleep(1)  # 額外等待 1 秒以確保動態內容加載
+        time.sleep(1)  # 額外等待 1 秒
         print("✅ 頁面穩定")
     except Exception as e:
         print(f"⚠️ 頁面穩定性檢查失敗：{e}")
@@ -147,7 +147,7 @@ def navigate_to_month(driver, wait, target_month):
             print(f"🔄 已點擊下一月按鈕，等待日曆更新...")
 
             wait.until(lambda d: d.find_element(By.CSS_SELECTOR, '.c-fuzzy-calendar-month__title').text != current_month)
-            wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days li')))
+            wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, '[data-date]')))
             attempts += 1
         except (TimeoutException, NoSuchElementException, WebDriverException) as e:
             print(f"⚠️ 無法定位月份標題或下一月按鈕，嘗試 {attempts + 1}/{max_attempts}：{str(e)}")
@@ -157,11 +157,9 @@ def navigate_to_month(driver, wait, target_month):
     return False
 
 def select_date(driver, wait, date_input, target_date, target_month, fallback_date=None, fallback_month=None):
-    # 確保日期輸入框可見並可點擊
     driver.execute_script("arguments[0].scrollIntoView(true);", date_input)
     time.sleep(0.5)
     
-    # 使用 JavaScript 點擊日期輸入框，避免點擊攔截
     for attempt in range(3):
         try:
             driver.execute_script("arguments[0].click();", date_input)
@@ -173,31 +171,27 @@ def select_date(driver, wait, date_input, target_date, target_month, fallback_da
                 raise
             time.sleep(2)
 
-    # 處理潛在彈窗
     handle_popups(driver, wait)
-
-    # 等待頁面穩定
     wait_for_page_stable(driver)
 
-    # 等待日曆元素可見並可交互
+    # 增強日曆等待邏輯
     try:
-        # 首先等待日曆容器出現
-        calendar_container = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days')))
+        # 等待日曆容器或日期元素
+        calendar_container = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month')))
         print("✅ 日曆容器已存在於 DOM")
         
-        # 等待日曆標題可見，確認日曆已渲染
-        wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__title')))
-        print("✅ 日曆標題已可見")
+        # 等待日期元素可見
+        wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, '[data-date]')))
+        print("✅ 日期元素已可見")
 
-        # 等待日期元素可見且可點擊
-        wait.until(EC.visibility_of_all_elements_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days li')))
-        wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days li')))
-        print("✅ 日曆日期元素已加載並可交互")
+        # 確保日期列表可交互
+        wait.until(EC.visibility_of_all_elements_located((By.CSS_SELECTOR, '[data-date]')))
+        wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-date]')))
+        print("✅ 日期元素已加載並可交互")
     except Exception as e:
         print(f"⚠️ 無法加載日曆元素：{e}")
-        # 記錄更多上下文
         try:
-            calendar_html = driver.execute_script("return document.querySelector('.c-fuzzy-calendar-month__days')?.outerHTML || '未找到日曆元素';")
+            calendar_html = driver.execute_script("return document.querySelector('.c-fuzzy-calendar-month')?.outerHTML || '未找到日曆元素';")
             print(f"📋 日曆元素 HTML：{calendar_html}")
         except Exception as log_e:
             print(f"⚠️ 無法記錄日曆元素 HTML：{log_e}")
@@ -214,11 +208,6 @@ def select_date(driver, wait, date_input, target_date, target_month, fallback_da
             raise Exception(f"無法導航至 {target_month}，且無備用日期")
     
     try:
-        date_elements = driver.find_elements(By.CSS_SELECTOR, f'li[data-date="{target_date}"]')
-        if not date_elements:
-            print(f"⚠️ 找不到日期 {target_date} 的元素")
-            raise TimeoutException(f"日期 {target_date} 不存在")
-
         date_element = wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, f'li[data-date="{target_date}"]')))
         wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, f'li[data-date="{target_date}"]')))
         driver.execute_script("arguments[0].scrollIntoView(true);", date_element)
