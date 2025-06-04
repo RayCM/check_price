@@ -24,8 +24,10 @@ PRICE_THRESHOLD = 41000
 BASE_URL = 'https://tw.trip.com/flights/'
 DEPART_CITY = 'TPE'
 ARRIVE_CITY = 'OSL'
-DEPART_DATE = '2025-09-27'
-RETURN_DATE = '2025-10-11'
+DEPART_DATE = '2025-09-27'  # 目標出發日期
+RETURN_DATE = '2025-10-11'  # 目標回程日期
+FALLBACK_DEPART_DATE = '2025-06-07'  # 備用出發日期（當目標日期不可用時）
+FALLBACK_RETURN_DATE = '2025-06-14'  # 備用回程日期
 
 def send_line_notification(message):
     try:
@@ -54,6 +56,7 @@ def save_debug_files(driver, error):
             f.write(f"錯誤類型：{type(error).__name__}\n")
             f.write(f"錯誤訊息：{str(error)}\n")
             f.write(f"當前 URL：{driver.current_url if driver else 'N/A'}\n")
+            f.write(f"當前 HTML 片段：{driver.page_source[:1000] if driver else 'N/A'}\n")
             f.write(f"堆棧追蹤：\n{str(error.__traceback__)}\n\n")
         print("📝 已儲存 page_debug.html、screenshot.png 與 run.log 作為除錯資料")
     except Exception as e:
@@ -65,72 +68,73 @@ def try_form_action(description, action, max_attempts=3):
             print(f"📝 {description} (嘗試 {attempt+1}/{max_attempts})...")
             action()
             time.sleep(random.uniform(0.5, 1.5))
-            return
+            return True
         except Exception as e:
             print(f"🚫 {description} 失敗：{str(e)}")
             if attempt == max_attempts - 1:
                 raise
+            time.sleep(2)
+    return False
 
 def navigate_to_month(driver, wait, target_month):
     max_attempts = 12  # 最多嘗試 12 次（一年內的月份）
     attempts = 0
     while attempts < max_attempts:
         try:
-            # 確保日曆標題可見
             current_month = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__title'))).text
             print(f"📅 當前月份：{current_month}")
             if current_month == target_month:
                 print(f"✅ 已到達目標月份：{target_month}")
                 return True
 
-            # 確保下一月按鈕可見且可點擊
             next_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '.c-fuzzy-calendar-icon-next')))
-            
-            # 滾動到按鈕位置，確保可見
             driver.execute_script("arguments[0].scrollIntoView(true);", next_button)
-            time.sleep(0.5)  # 短暫等待滾動完成
-            
-            # 使用 JavaScript 點擊，避免遮擋問題
+            time.sleep(1)  # 增加延遲確保按鈕可點擊
             driver.execute_script("arguments[0].click();", next_button)
             print(f"🔄 已點擊下一月按鈕，等待日曆更新...")
 
-            # 等待日曆天數區域更新
-            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days')))
-            
-            # 等待月份標題更新
-            wait.until(lambda d: d.find_element(By.CSS_SELECTOR, '.c-fuzzy-calendar-month__title').text != current_month)
+            wait.until(lambda d: d.find_element(By.CSS_SELECTOR, '.c-fuzzy-calendar-month__title').text != current_month or 
+                       EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days')))
             attempts += 1
         except (TimeoutException, NoSuchElementException, WebDriverException) as e:
             print(f"⚠️ 無法定位月份標題或下一月按鈕，嘗試 {attempts + 1}/{max_attempts}：{str(e)}")
-            time.sleep(3)
+            time.sleep(2)
             attempts += 1
     print(f"❌ 無法導航至 {target_month}，超過最大嘗試次數")
     return False
 
-def select_date(driver, wait, date_input, target_date, target_month):
-    # 點擊日期輸入框以打開日曆
+def select_date(driver, wait, date_input, target_date, target_month, fallback_date=None, fallback_month=None):
     driver.execute_script("arguments[0].click();", date_input)
-    
-    # 等待日曆加載
     wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days')))
     
-    # 導航至目標月份
     if not navigate_to_month(driver, wait, target_month):
-        raise Exception(f"無法導航至 {target_month}")
+        print(f"⚠️ 無法導航至 {target_month}，可能日期尚未開放")
+        if fallback_date and fallback_month:
+            print(f"🔄 嘗試使用備用日期：{fallback_date} ({fallback_month})")
+            if not navigate_to_month(driver, wait, fallback_month):
+                raise Exception(f"無法導航至備用月份 {fallback_month}")
+            target_date = fallback_date
+        else:
+            raise Exception(f"無法導航至 {target_month}，且無備用日期")
     
-    # 選擇日期
     try:
-        date_element = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, f'li[data-date="{target_date}"]')))
-        
-        # 確保日期元素可見
+        date_element = wait.until( Nicolai element_to_be_clickable((By.CSS_SELECTOR, f'li[data-date="{target_date}"]')))
         driver.execute_script("arguments[0].scrollIntoView(true);", date_element)
         time.sleep(0.5)
-        
-        # 點擊日期
         driver.execute_script("arguments[0].click();", date_element)
         print(f"✅ 成功選擇日期：{target_date}")
+        return target_date
     except TimeoutException:
-        raise Exception(f"無法選擇日期 {target_date}，可能日期不可用或選擇器失效")
+        print(f"⚠️ 無法選擇日期 {target_date}，可能日期尚未開放或選擇器失效")
+        if fallback_date:
+            print(f"🔄 嘗試使用備用日期：{fallback_date}")
+            date_element = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, f'li[data-date="{fallback_date}"]')))
+            driver.execute_script("arguments[0].scrollIntoView(true);", date_element)
+            time.sleep(0.5)
+            driver.execute_script("arguments[0].click();", date_element)
+            print(f"✅ 成功選擇備用日期：{fallback_date}")
+            return fallback_date
+        raise
 
 def check_price():
     print("🔍 開始查詢 Trip.com...")
@@ -154,54 +158,54 @@ def check_price():
         driver.get(BASE_URL)
 
         print("📝 填寫搜尋條件...")
-        wait = WebDriverWait(driver, 120)  # 延長等待時間為 120 秒
+        wait = WebDriverWait(driver, 120)
 
         try_form_action("選擇來回票", lambda: driver.execute_script("arguments[0].click();", wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-testid="flightType_RT"]')))))
 
         try_form_action("輸入出發地", lambda: (
             lambda depart_wrapper: (
-                # 清除現有選項（若存在）
                 driver.execute_script("arguments[0].click();", wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'i[data-testid="cityLabel_delete_0"]')))) if driver.find_elements(By.CSS_SELECTOR, 'i[data-testid="cityLabel_delete_0"]') else None,
                 time.sleep(0.5),
-                # 點擊輸入框並輸入
                 driver.execute_script("arguments[0].click();", depart_wrapper.find_element(By.CSS_SELECTOR, 'input[data-testid="search_city_from0"]')),
                 depart_wrapper.find_element(By.CSS_SELECTOR, 'input[data-testid="search_city_from0"]').send_keys(DEPART_CITY),
-                # 等待下拉列表並選擇「台北 所有機場 (TPE)」
                 wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-testid="search_result_box"]'))),
                 wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-testid="0"]'))),
-                driver.execute_script("arguments[0].click();", wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-testid="0"]'))))
+                driver.execute_script("arguments[0].click();", driver.find_element(By.CSS_SELECTOR, 'div[data-testid="0"]'))
             )
         )(wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-testid="search_city_from0_wrapper"]')))))
 
         try_form_action("輸入目的地", lambda: (
             lambda arrive_wrapper: (
-                # 清除現有選項（若存在）
                 driver.execute_script("arguments[0].click();", wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'i[data-testid="cityLabel_delete_0"]')))) if driver.find_elements(By.CSS_SELECTOR, 'i[data-testid="cityLabel_delete_0"]') else None,
                 time.sleep(0.5),
-                # 點擊輸入框並輸入
                 driver.execute_script("arguments[0].click();", arrive_wrapper.find_element(By.CSS_SELECTOR, 'input[data-testid="search_city_to0"]')),
                 arrive_wrapper.find_element(By.CSS_SELECTOR, 'input[data-testid="search_city_to0"]').send_keys(ARRIVE_CITY),
-                # 等待下拉列表並選擇「奧斯陸 (OSL)」
                 wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-testid="search_result_box"]'))),
                 wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-testid="0"]'))),
-                driver.execute_script("arguments[0].click();", wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-testid="0"]'))))
+                driver.execute_script("arguments[0].click();", driver.find_element(By.CSS_SELECTOR, 'div[data-testid="0"]'))
             )
         )(wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-testid="search_city_to0_wrapper"]')))))
 
-        try_form_action("選擇去程日期", lambda: select_date(
+        # 選擇去程日期，並提供備用日期
+        final_depart_date = try_form_action("選擇去程日期", lambda: select_date(
             driver,
             wait,
             wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[data-testid="search_date_depart0"]'))),
             DEPART_DATE,
-            '2025年9月'
+            '2025年9月',
+            FALLBACK_DEPART_DATE,
+            '2025年6月'
         ))
 
-        try_form_action("選擇回程日期", lambda: select_date(
+        # 選擇回程日期，並提供備用日期
+        final_return_date = try_form_action("選擇回程日期", lambda: select_date(
             driver,
             wait,
             wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[data-testid="search_date_return0"]'))),
             RETURN_DATE,
-            '2025年10月'
+            '2025年10月',
+            FALLBACK_RETURN_DATE,
+            '2025年6月'
         ))
 
         try_form_action("提交搜尋", lambda: driver.execute_script("arguments[0].click();", wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-testid="search_btn"]')))))
