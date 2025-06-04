@@ -73,16 +73,20 @@ def navigate_to_month(driver, wait, target_month):
     attempts = 0
     while attempts < max_attempts:
         try:
+            # 確保日曆標題可見
             current_month = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__title'))).text
+            print(f"📅 當前月份：{current_month}")
             if current_month == target_month:
+                print(f"✅ 已到達目標月份：{target_month}")
                 return True
-            next_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '.c-fuzzy-calendar-icon-next')))
-            next_button.click()
-            time.sleep(1)  # 等待日曆更新
+            # 使用 JavaScript 點擊下一月按鈕
+            next_button = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-icon-next')))
+            driver.execute_script("arguments[0].click();", next_button)
+            time.sleep(2)  # 增加延遲，確保日曆更新
             attempts += 1
-        except (TimeoutException, NoSuchElementException):
-            print(f"⚠️ 無法定位月份標題或下一月按鈕，嘗試 {attempts + 1}/{max_attempts}")
-            time.sleep(1)
+        except (TimeoutException, NoSuchElementException) as e:
+            print(f"⚠️ 無法定位月份標題或下一月按鈕，嘗試 {attempts + 1}/{max_attempts}：{str(e)}")
+            time.sleep(2)
     print(f"❌ 無法導航至 {target_month}，超過最大嘗試次數")
     return False
 
@@ -94,7 +98,12 @@ def select_date(driver, wait, date_input, target_date, target_month):
     if not navigate_to_month(driver, wait, target_month):
         raise Exception(f"無法導航至 {target_month}")
     # 選擇日期
-    wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, f'li[data-date="{target_date}"]'))).click()
+    try:
+        date_element = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, f'li[data-date="{target_date}"]')))
+        driver.execute_script("arguments[0].click();", date_element)  # 使用 JavaScript 點擊
+        print(f"✅ 成功選擇日期：{target_date}")
+    except TimeoutException:
+        raise Exception(f"無法選擇日期 {target_date}，可能日期不可用或選擇器失效")
 
 def check_price():
     print("🔍 開始查詢 Trip.com...")
