@@ -7,7 +7,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException, ElementClickInterceptedException
 from linebot.v3.messaging import MessagingApi, Configuration, ApiClient
 from linebot.v3.messaging.models import TextMessage, PushMessageRequest
 
@@ -77,6 +77,25 @@ def try_form_action(description, action, max_attempts=3):
             time.sleep(2)
     return False
 
+def ensure_dropdown_closed(driver, wait):
+    try:
+        # 檢查是否有下拉選單可見
+        dropdown = driver.find_elements(By.CSS_SELECTOR, 'div[data-testid="search_result_box"]')
+        if dropdown:
+            print("⚠️ 檢測到下拉選單，嘗試關閉...")
+            # 模擬按下 ESC 鍵關閉下拉選單
+            driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
+            time.sleep(1)
+            # 再次檢查是否關閉
+            if driver.find_elements(By.CSS_SELECTOR, 'div[data-testid="search_result_box"]'):
+                print("⚠️ 下拉選單仍未關閉，嘗試點擊空白區域...")
+                driver.execute_script("document.body.click();")
+                time.sleep(1)
+        else:
+            print("✅ 無下拉選單遮擋")
+    except Exception as e:
+        print(f"⚠️ 檢查下拉選單時出錯：{e}")
+
 def navigate_to_month(driver, wait, target_month):
     max_attempts = 12
     attempts = 0
@@ -88,7 +107,6 @@ def navigate_to_month(driver, wait, target_month):
                 print(f"✅ 已到達目標月份：{target_month}")
                 return True
 
-            # 檢查「下一月」按鈕是否可點擊
             next_buttons = driver.find_elements(By.CSS_SELECTOR, '.c-fuzzy-calendar-icon-next')
             if not next_buttons:
                 print("⚠️ 找不到下一月按鈕")
@@ -99,13 +117,11 @@ def navigate_to_month(driver, wait, target_month):
                 print(f"⚠️ 下一月按鈕被禁用，無法切換到 {target_month}")
                 return False
 
-            # 模擬更自然的點擊行為
             driver.execute_script("arguments[0].scrollIntoView(true);", next_button)
             time.sleep(1)
-            next_button.send_keys(Keys.ENTER)  # 使用鍵盤操作模擬點擊
+            next_button.send_keys(Keys.ENTER)
             print(f"🔄 已點擊下一月按鈕，等待日曆更新...")
 
-            # 等待新月份加載完成
             wait.until(lambda d: d.find_element(By.CSS_SELECTOR, '.c-fuzzy-calendar-month__title').text != current_month)
             wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days li')))
             attempts += 1
@@ -117,10 +133,18 @@ def navigate_to_month(driver, wait, target_month):
     return False
 
 def select_date(driver, wait, date_input, target_date, target_month, fallback_date=None, fallback_month=None):
-    # 點擊日期輸入框以打開日曆
+    # 確保日期輸入框可見並可點擊
     driver.execute_script("arguments[0].scrollIntoView(true);", date_input)
     time.sleep(0.5)
-    date_input.click()
+    
+    # 使用 JavaScript 點擊日期輸入框，避免點擊攔截
+    try:
+        driver.execute_script("arguments[0].click();", date_input)
+        print("✅ 使用 JavaScript 成功點擊日期輸入框")
+    except Exception as e:
+        print(f"⚠️ JavaScript 點擊日期輸入框失敗：{e}")
+        raise
+
     wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days')))
     
     if not navigate_to_month(driver, wait, target_month):
@@ -134,7 +158,6 @@ def select_date(driver, wait, date_input, target_date, target_month, fallback_da
             raise Exception(f"無法導航至 {target_month}，且無備用日期")
     
     try:
-        # 檢查日期元素是否存在並可點擊
         date_elements = driver.find_elements(By.CSS_SELECTOR, f'li[data-date="{target_date}"]')
         if not date_elements:
             print(f"⚠️ 找不到日期 {target_date} 的元素")
@@ -144,7 +167,7 @@ def select_date(driver, wait, date_input, target_date, target_month, fallback_da
         wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, f'li[data-date="{target_date}"]')))
         driver.execute_script("arguments[0].scrollIntoView(true);", date_element)
         time.sleep(0.5)
-        date_element.send_keys(Keys.ENTER)  # 使用鍵盤操作模擬點擊
+        date_element.send_keys(Keys.ENTER)
         print(f"✅ 成功選擇日期：{target_date}")
         return target_date
     except (TimeoutException, WebDriverException) as e:
@@ -206,7 +229,10 @@ def check_price():
                 arrive_wrapper.find_element(By.CSS_SELECTOR, 'input[data-testid="search_city_to0"]').send_keys(ARRIVE_CITY),
                 wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-testid="search_result_box"]'))),
                 wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-testid="0"]'))),
-                driver.execute_script("arguments[0].click();", driver.find_element(By.CSS_SELECTOR, 'div[data-testid="0"]'))
+                driver.execute_script("arguments[0].click();", driver.find_element(By.CSS_SELECTOR, 'div[data-testid="0"]')),
+                # 確保下拉選單關閉
+                arrive_wrapper.find_element(By.CSS_SELECTOR, 'input[data-testid="search_city_to0"]').send_keys(Keys.ENTER),
+                ensure_dropdown_closed(driver, wait)
             )
         )(wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-testid="search_city_to0_wrapper"]')))))
 
@@ -273,7 +299,7 @@ def check_price():
         if not found:
             print("❗ 沒有找到符合條件的航班")
 
-    except (TimeoutException, NoSuchElementException, WebDriverException) as e:
+    except (TimeoutException, NoSuchElementException, WebDriverException, ElementClickInterceptedException) as e:
         print("🚫 Selenium 錯誤：", e)
         save_debug_files(driver, e)
     except Exception as e:
