@@ -79,14 +79,11 @@ def try_form_action(description, action, max_attempts=3):
 
 def ensure_dropdown_closed(driver, wait):
     try:
-        # 檢查是否有下拉選單可見
         dropdown = driver.find_elements(By.CSS_SELECTOR, 'div[data-testid="search_result_box"]')
         if dropdown:
             print("⚠️ 檢測到下拉選單，嘗試關閉...")
-            # 模擬按下 ESC 鍵關閉下拉選單
             driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
             time.sleep(1)
-            # 再次檢查是否關閉
             if driver.find_elements(By.CSS_SELECTOR, 'div[data-testid="search_result_box"]'):
                 print("⚠️ 下拉選單仍未關閉，嘗試點擊空白區域...")
                 driver.execute_script("document.body.click();")
@@ -98,11 +95,9 @@ def ensure_dropdown_closed(driver, wait):
 
 def handle_popups(driver, wait):
     try:
-        # 檢查是否有「允許通知」彈窗
         notification_popup = driver.find_elements(By.XPATH, "//*[contains(text(), '允許通知')]")
         if notification_popup:
             print("⚠️ 檢測到通知彈窗，嘗試關閉...")
-            # 嘗試點擊「拒絕」或「關閉」按鈕
             try:
                 close_button = driver.find_element(By.XPATH, "//*[contains(text(), '不同意') or contains(text(), '關閉')]")
                 driver.execute_script("arguments[0].click();", close_button)
@@ -115,6 +110,15 @@ def handle_popups(driver, wait):
             print("✅ 無通知彈窗")
     except Exception as e:
         print(f"⚠️ 處理通知彈窗時出錯：{e}")
+
+def wait_for_page_stable(driver):
+    try:
+        # 等待頁面處於穩定狀態（檢查 document.readyState）
+        driver.execute_script("return document.readyState === 'complete';")
+        time.sleep(1)  # 額外等待 1 秒以確保動態內容加載
+        print("✅ 頁面穩定")
+    except Exception as e:
+        print(f"⚠️ 頁面穩定性檢查失敗：{e}")
 
 def navigate_to_month(driver, wait, target_month):
     max_attempts = 12
@@ -172,13 +176,31 @@ def select_date(driver, wait, date_input, target_date, target_month, fallback_da
     # 處理潛在彈窗
     handle_popups(driver, wait)
 
+    # 等待頁面穩定
+    wait_for_page_stable(driver)
+
     # 等待日曆元素可見並可交互
     try:
-        wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days')))
-        wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days li')))
-        print("✅ 日曆元素已加載")
+        # 首先等待日曆容器出現
+        calendar_container = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days')))
+        print("✅ 日曆容器已存在於 DOM")
+        
+        # 等待日曆標題可見，確認日曆已渲染
+        wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__title')))
+        print("✅ 日曆標題已可見")
+
+        # 等待日期元素可見且可點擊
+        wait.until(EC.visibility_of_all_elements_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days li')))
+        wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days li')))
+        print("✅ 日曆日期元素已加載並可交互")
     except Exception as e:
         print(f"⚠️ 無法加載日曆元素：{e}")
+        # 記錄更多上下文
+        try:
+            calendar_html = driver.execute_script("return document.querySelector('.c-fuzzy-calendar-month__days')?.outerHTML || '未找到日曆元素';")
+            print(f"📋 日曆元素 HTML：{calendar_html}")
+        except Exception as log_e:
+            print(f"⚠️ 無法記錄日曆元素 HTML：{log_e}")
         raise
 
     if not navigate_to_month(driver, wait, target_month):
@@ -264,7 +286,6 @@ def check_price():
                 wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-testid="search_result_box"]'))),
                 wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-testid="0"]'))),
                 driver.execute_script("arguments[0].click();", driver.find_element(By.CSS_SELECTOR, 'div[data-testid="0"]')),
-                # 確保下拉選單關閉
                 arrive_wrapper.find_element(By.CSS_SELECTOR, 'input[data-testid="search_city_to0"]').send_keys(Keys.ENTER),
                 ensure_dropdown_closed(driver, wait)
             )
