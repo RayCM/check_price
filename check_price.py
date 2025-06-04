@@ -80,12 +80,19 @@ def check_price():
 
         try:
             print("📝 選擇來回票...")
-            round_trip = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-spm-anchor-id="FlightSearchForm_FlightTripType_RoundTrip"]')))
+            round_trip = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[aria-label="來回"]')))
             round_trip.click()
             time.sleep(random.uniform(0.5, 1.5))
         except Exception as e:
             print(f"🚫 選擇來回票失敗：{str(e)}")
-            raise
+            # 嘗試備用選擇器
+            try:
+                round_trip = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '.flight-trip-type-button[data-type="round"]')))
+                round_trip.click()
+                time.sleep(random.uniform(0.5, 1.5))
+            except Exception as e2:
+                print(f"🚫 備用選擇器失敗：{str(e2)}")
+                raise
 
         try:
             print("📝 輸入出發地...")
