@@ -118,7 +118,7 @@ def select_date(driver, wait, date_input, target_date, target_month, fallback_da
             raise Exception(f"無法導航至 {target_month}，且無備用日期")
     
     try:
-        date_element = wait.until( Nicolai element_to_be_clickable((By.CSS_SELECTOR, f'li[data-date="{target_date}"]')))
+        date_element = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, f'li[data-date="{target_date}"]')))
         driver.execute_script("arguments[0].scrollIntoView(true);", date_element)
         time.sleep(0.5)
         driver.execute_script("arguments[0].click();", date_element)
