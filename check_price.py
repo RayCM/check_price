@@ -95,34 +95,44 @@ def check_price():
         try_form_action("選擇來回票", lambda: driver.execute_script("arguments[0].click();", wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-testid="flightType_RT"]')))))
 
         try_form_action("輸入出發地", lambda: (
-            lambda depart_input: (
-                driver.execute_script("arguments[0].click();", depart_input),
-                depart_input.clear(),
-                depart_input.send_keys(DEPART_CITY),
-                wait.until(EC.element_to_be_clickable((By.XPATH, '//div[contains(text(), "台北 (TPE)") and contains(@class, "city-item")]'))).click()
+            lambda depart_wrapper: (
+                # 清除現有選項（若存在）
+                driver.execute_script("arguments[0].click();", wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'i[data-testid="cityLabel_delete_0"]')))) if wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'i[data-testid="cityLabel_delete_0"]'))) else None,
+                time.sleep(0.5),
+                # 點擊輸入框並輸入
+                driver.execute_script("arguments[0].click();", depart_wrapper.find_element(By.CSS_SELECTOR, 'input[data-testid="search_city_from0"]')),
+                depart_wrapper.find_element(By.CSS_SELECTOR, 'input[data-testid="search_city_from0"]').send_keys(DEPART_CITY),
+                # 等待並選擇「台北 (TPE)」
+                wait.until(EC.presence_of_element_located((By.XPATH, '//div[contains(text(), "台北 (TPE)") and contains(@class, "city-item")]'))),
+                driver.execute_script("arguments[0].click();", wait.until(EC.element_to_be_clickable((By.XPATH, '//div[contains(text(), "台北 (TPE)") and contains(@class, "city-item")]'))))
             )
-        )(wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[data-testid="search_city_from0"]')))))
+        )(wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-testid="search_city_from0_wrapper"]')))))
 
         try_form_action("輸入目的地", lambda: (
-            lambda arrive_input: (
-                driver.execute_script("arguments[0].click();", arrive_input),
-                arrive_input.clear(),
-                arrive_input.send_keys(ARRIVE_CITY),
-                wait.until(EC.element_to_be_clickable((By.XPATH, '//div[contains(text(), "奧斯陸 (OSL)") and contains(@class, "city-item")]'))).click()
+            lambda arrive_wrapper: (
+                # 清除現有選項（若存在）
+                driver.execute_script("arguments[0].click();", wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'i[data-testid="cityLabel_delete_0"]')))) if wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'i[data-testid="cityLabel_delete_0"]'))) else None,
+                time.sleep(0.5),
+                # 點擊輸入框並輸入
+                driver.execute_script("arguments[0].click();", arrive_wrapper.find_element(By.CSS_SELECTOR, 'input[data-testid="search_city_to0"]')),
+                arrive_wrapper.find_element(By.CSS_SELECTOR, 'input[data-testid="search_city_to0"]').send_keys(ARRIVE_CITY),
+                # 等待並選擇「奧斯陸 (OSL)」
+                wait.until(EC.presence_of_element_located((By.XPATH, '//div[contains(text(), "奧斯陸 (OSL)") and contains(@class, "city-item")]'))),
+                driver.execute_script("arguments[0].click();", wait.until(EC.element_to_be_clickable((By.XPATH, '//div[contains(text(), "奧斯陸 (OSL)") and contains(@class, "city-item")]'))))
             )
-        )(wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[data-testid="search_city_to0"]')))))
+        )(wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-testid="search_city_to0_wrapper"]')))))
 
         try_form_action("選擇去程日期", lambda: (
             lambda depart_date_input: (
                 driver.execute_script("arguments[0].click();", depart_date_input),
-                wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-date="2025-09-27"]'))).click()
+                wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, f'div[data-date="{DEPART_DATE}"]'))).click()
             )
         )(wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[data-testid="search_date_depart0"]')))))
 
         try_form_action("選擇回程日期", lambda: (
             lambda return_date_input: (
                 driver.execute_script("arguments[0].click();", return_date_input),
-                wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-date="2025-10-11"]'))).click()
+                wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, f'div[data-date="{RETURN_DATE}"]'))).click()
             )
         )(wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[data-testid="search_date_return0"]')))))
 
