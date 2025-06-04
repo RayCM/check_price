@@ -56,6 +56,18 @@ def save_debug_files(driver, error):
     except Exception as e:
         print(f"⚠️ 儲存除錯資料失敗: {e}")
 
+def try_form_action(description, action, max_attempts=3):
+    for attempt in range(max_attempts):
+        try:
+            print(f"📝 {description} (嘗試 {attempt+1}/{max_attempts})...")
+            action()
+            time.sleep(random.uniform(0.5, 1.5))
+            return
+        except Exception as e:
+            print(f"🚫 {description} 失敗：{str(e)}")
+            if attempt == max_attempts - 1:
+                raise
+
 def check_price():
     print("🔍 開始查詢 Trip.com...")
     options = Options()
@@ -64,9 +76,11 @@ def check_price():
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument('--remote-debugging-port=9222')
     options.add_argument('--window-size=1920,1080')
-    options.add_argument(
-        'user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    )
+    user_agents = [
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    ]
+    options.add_argument(f'user-agent={random.choice(user_agents)}')
 
     driver = None
     try:
@@ -78,73 +92,41 @@ def check_price():
         print("📝 填寫搜尋條件...")
         wait = WebDriverWait(driver, 60)
 
-        try:
-            print("📝 選擇來回票...")
-            round_trip = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-testid="flightType_RT"]')))
-            driver.execute_script("arguments[0].click();", round_trip)  # 使用 JavaScript 點擊
-            time.sleep(random.uniform(0.5, 1.5))
-        except Exception as e:
-            print(f"🚫 選擇來回票失敗：{str(e)}")
-            # 備用選擇器（基於 aria-label）
-            try:
-                round_trip_label = wait.until(EC.element_to_be_clickable((By.XPATH, '//div[@aria-label="來回"]')))
-                round_trip_label.click()
-                time.sleep(random.uniform(0.5, 1.5))
-            except Exception as e2:
-                print(f"🚫 備用選擇器失敗：{str(e2)}")
-                raise
+        try_form_action("選擇來回票", lambda: driver.execute_script("arguments[0].click();", wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-testid="flightType_RT"]')))))
 
-        try:
-            print("📝 輸入出發地...")
-            depart_input = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[placeholder="出發地"]')))
-            depart_input.click()
-            depart_input.clear()
-            depart_input.send_keys(DEPART_CITY)
-            time.sleep(random.uniform(0.5, 1.5))
-            wait.until(EC.element_to_be_clickable((By.XPATH, '//div[contains(text(), "台北 (TPE)") and contains(@class, "city-item")]'))).click()
-        except Exception as e:
-            print(f"🚫 輸入出發地失敗：{str(e)}")
-            raise
+        try_form_action("輸入出發地", lambda: (
+            lambda depart_input: (
+                driver.execute_script("arguments[0].click();", depart_input),
+                depart_input.clear(),
+                depart_input.send_keys(DEPART_CITY),
+                wait.until(EC.element_to_be_clickable((By.XPATH, '//div[contains(text(), "台北 (TPE)") and contains(@class, "city-item")]'))).click()
+            )
+        )(wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[data-testid="search_city_from0"]')))))
 
-        try:
-            print("📝 輸入目的地...")
-            arrive_input = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[placeholder="目的地"]')))
-            arrive_input.click()
-            arrive_input.clear()
-            arrive_input.send_keys(ARRIVE_CITY)
-            time.sleep(random.uniform(0.5, 1.5))
-            wait.until(EC.element_to_be_clickable((By.XPATH, '//div[contains(text(), "奧斯陸 (OSL)") and contains(@class, "city-item")]'))).click()
-        except Exception as e:
-            print(f"🚫 輸入目的地失敗：{str(e)}")
-            raise
+        try_form_action("輸入目的地", lambda: (
+            lambda arrive_input: (
+                driver.execute_script("arguments[0].click();", arrive_input),
+                arrive_input.clear(),
+                arrive_input.send_keys(ARRIVE_CITY),
+                wait.until(EC.element_to_be_clickable((By.XPATH, '//div[contains(text(), "奧斯陸 (OSL)") and contains(@class, "city-item")]'))).click()
+            )
+        )(wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[data-testid="search_city_to0"]')))))
 
-        try:
-            print("📝 選擇去程日期...")
-            depart_date_input = wait.until(EC.element_to_be_clickable((By.XPATH, '//input[@placeholder="任何日期"]')))
-            depart_date_input.click()
-            wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[aria-label="2025年9月27日"]'))).click()
-            time.sleep(random.uniform(0.5, 1.5))
-        except Exception as e:
-            print(f"🚫 選擇去程日期失敗：{str(e)}")
-            raise
+        try_form_action("選擇去程日期", lambda: (
+            lambda depart_date_input: (
+                driver.execute_script("arguments[0].click();", depart_date_input),
+                wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-date="2025-09-27"]'))).click()
+            )
+        )(wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[data-testid="search_date_depart0"]')))))
 
-        try:
-            print("📝 選擇回程日期...")
-            return_date_input = wait.until(EC.element_to_be_clickable((By.XPATH, '(//input[@placeholder="任何日期"])[2]')))
-            return_date_input.click()
-            wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[aria-label="2025年10月11日"]'))).click()
-            time.sleep(random.uniform(0.5, 1.5))
-        except Exception as e:
-            print(f"🚫 選擇回程日期失敗：{str(e)}")
-            raise
+        try_form_action("選擇回程日期", lambda: (
+            lambda return_date_input: (
+                driver.execute_script("arguments[0].click();", return_date_input),
+                wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-date="2025-10-11"]'))).click()
+            )
+        )(wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[data-testid="search_date_return0"]')))))
 
-        try:
-            print("📝 提交搜尋...")
-            search_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-testid="search_btn"]')))
-            search_button.click()
-        except Exception as e:
-            print(f"🚫 提交搜尋失敗：{str(e)}")
-            raise
+        try_form_action("提交搜尋", lambda: driver.execute_script("arguments[0].click();", wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-testid="search_btn"]')))))
 
         print("⌛ 等待搜尋結果頁面...")
         wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '[data-price]')))
