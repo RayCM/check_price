@@ -1,4 +1,6 @@
 import os
+import time
+import random
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -48,8 +50,8 @@ def save_debug_files(driver, error):
             driver.save_screenshot("screenshot.png")
             with open("page_debug.html", "w", encoding="utf-8") as f:
                 f.write(driver.page_source)
-        with open("run.log", "w", encoding="utf-8") as f:
-            f.write(str(error))
+        with open("run.log", "a", encoding="utf-8") as f:
+            f.write(str(error) + "\n")
         print("📝 已儲存 page_debug.html、screenshot.png 與 run.log 作為除錯資料")
     except Exception as e:
         print(f"⚠️ 儲存除錯資料失敗: {e}")
@@ -61,6 +63,7 @@ def check_price():
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument('--remote-debugging-port=9222')
+    options.add_argument('--window-size=1920,1080')
     options.add_argument(
         'user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     )
@@ -73,37 +76,68 @@ def check_price():
         driver.get(BASE_URL)
 
         print("📝 填寫搜尋條件...")
-        wait = WebDriverWait(driver, 30)
+        wait = WebDriverWait(driver, 60)
 
-        # 選擇來回票
-        round_trip = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="flight-search-trip-type-round-trip"]')))
-        round_trip.click()
+        try:
+            print("📝 選擇來回票...")
+            round_trip = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-spm-anchor-id="FlightSearchForm_FlightTripType_RoundTrip"]')))
+            round_trip.click()
+            time.sleep(random.uniform(0.5, 1.5))
+        except Exception as e:
+            print(f"🚫 選擇來回票失敗：{str(e)}")
+            raise
 
-        # 輸入出發地
-        depart_input = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="flight-search-departure-city-input"]')))
-        depart_input.clear()
-        depart_input.send_keys(DEPART_CITY)
-        wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="flight-search-departure-city-TPE"]'))).click()
+        try:
+            print("📝 輸入出發地...")
+            depart_input = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[placeholder="出發地"]')))
+            depart_input.click()
+            depart_input.clear()
+            depart_input.send_keys(DEPART_CITY)
+            time.sleep(random.uniform(0.5, 1.5))
+            wait.until(EC.element_to_be_clickable((By.XPATH, '//div[contains(text(), "台北 (TPE)") and contains(@class, "city-item")]'))).click()
+        except Exception as e:
+            print(f"🚫 輸入出發地失敗：{str(e)}")
+            raise
 
-        # 輸入目的地
-        arrive_input = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="flight-search-arrival-city-input"]')))
-        arrive_input.clear()
-        arrive_input.send_keys(ARRIVE_CITY)
-        wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="flight-search-arrival-city-OSL"]'))).click()
+        try:
+            print("📝 輸入目的地...")
+            arrive_input = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[placeholder="目的地"]')))
+            arrive_input.click()
+            arrive_input.clear()
+            arrive_input.send_keys(ARRIVE_CITY)
+            time.sleep(random.uniform(0.5, 1.5))
+            wait.until(EC.element_to_be_clickable((By.XPATH, '//div[contains(text(), "奧斯陸 (OSL)") and contains(@class, "city-item")]'))).click()
+        except Exception as e:
+            print(f"🚫 輸入目的地失敗：{str(e)}")
+            raise
 
-        # 選擇去程日期
-        depart_date_input = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="flight-search-departure-date-input"]')))
-        depart_date_input.click()
-        wait.until(EC.element_to_be_clickable((By.XPATH, f'//div[@data-testid="calendar-day-{DEPART_DATE}"]'))).click()
+        try:
+            print("📝 選擇去程日期...")
+            depart_date_input = wait.until(EC.element_to_be_clickable((By.XPATH, '//input[@placeholder="出發日期"]/following-sibling::div')))
+            depart_date_input.click()
+            wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[aria-label="2025年9月27日"]'))).click()
+            time.sleep(random.uniform(0.5, 1.5))
+        except Exception as e:
+            print(f"🚫 選擇去程日期失敗：{str(e)}")
+            raise
 
-        # 選擇回程日期
-        return_date_input = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="flight-search-return-date-input"]')))
-        return_date_input.click()
-        wait.until(EC.element_to_be_clickable((By.XPATH, f'//div[@data-testid="calendar-day-{RETURN_DATE}"]'))).click()
+        try:
+            print("📝 選擇回程日期...")
+            return_date_input = wait.until(EC.element_to_be_clickable((By.XPATH, '//input[@placeholder="回程日期"]/following-sibling::div')))
+            return_date_input.click()
+            wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[aria-label="2025年10月11日"]'))).click()
+            time.sleep(random.uniform(0.5, 1.5))
+        except Exception as e:
+            print(f"🚫 選擇回程日期失敗：{str(e)}")
+            raise
 
-        # 提交搜尋
-        search_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '[data-testid="flight-search-submit-button"]')))
-        search_button.click()
+        try:
+            print("📝 提交搜尋...")
+            search_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-spm-anchor-id="FlightSearchForm_FlightSearchButton"]')))
+            search_button.click()
+        except Exception as e:
+            print(f"🚫 提交搜尋失敗：{str(e)}")
+            raise
 
         print("⌛ 等待搜尋結果頁面...")
         wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '[data-price]')))
@@ -147,11 +181,11 @@ def check_price():
     except (TimeoutException, NoSuchElementException, WebDriverException) as e:
         print("🚫 Selenium 錯誤：", e)
         save_debug_files(driver, e)
-        # send_line_notification(f"⚠️ 查詢失敗: {e}")
+        send_line_notification(f"⚠️ 查詢失敗: {str(e)}")
     except Exception as e:
         print("🚫 其他錯誤：", e)
         save_debug_files(driver, e)
-        # send_line_notification(f"⚠️ 查詢失敗: {e}")
+        send_line_notification(f"⚠️ 查詢失敗: {str(e)}")
     finally:
         if driver:
             driver.quit()
