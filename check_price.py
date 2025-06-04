@@ -69,15 +69,32 @@ def try_form_action(description, action, max_attempts=3):
                 raise
 
 def navigate_to_month(driver, wait, target_month):
-    current_month = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__title'))).text
     max_attempts = 12  # 最多嘗試 12 次（一年內的月份）
     attempts = 0
-    while current_month != target_month and attempts < max_attempts:
-        driver.find_element(By.CSS_SELECTOR, '.c-fuzzy-calendar-icon-next').click()
-        time.sleep(1)  # 等待日曆更新
-        current_month = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__title'))).text
-        attempts += 1
-    return current_month == target_month
+    while attempts < max_attempts:
+        try:
+            current_month = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__title'))).text
+            if current_month == target_month:
+                return True
+            next_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '.c-fuzzy-calendar-icon-next')))
+            next_button.click()
+            time.sleep(1)  # 等待日曆更新
+            attempts += 1
+        except (TimeoutException, NoSuchElementException):
+            print(f"⚠️ 無法定位月份標題或下一月按鈕，嘗試 {attempts + 1}/{max_attempts}")
+            time.sleep(1)
+    print(f"❌ 無法導航至 {target_month}，超過最大嘗試次數")
+    return False
+
+def select_date(driver, wait, date_input, target_date, target_month):
+    driver.execute_script("arguments[0].click();", date_input)
+    # 等待日曆加載
+    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days')))
+    # 導航至目標月份
+    if not navigate_to_month(driver, wait, target_month):
+        raise Exception(f"無法導航至 {target_month}")
+    # 選擇日期
+    wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, f'li[data-date="{target_date}"]'))).click()
 
 def check_price():
     print("🔍 開始查詢 Trip.com...")
@@ -135,31 +152,21 @@ def check_price():
             )
         )(wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-testid="search_city_to0_wrapper"]')))))
 
-        try_form_action("選擇去程日期", lambda: (
-            lambda depart_date_input: (
-                driver.execute_script("arguments[0].click();", depart_date_input),
-                # 等待日曆加載
-                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days'))),
-                # 導航至 9 月
-                if not navigate_to_month(driver, wait, '2025年9月'):
-                    raise Exception("無法導航至 2025年9月"),
-                # 選擇日期
-                wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, f'li[data-date="{DEPART_DATE}"]'))).click()
-            )
-        )(wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[data-testid="search_date_depart0"]')))))
+        try_form_action("選擇去程日期", lambda: select_date(
+            driver,
+            wait,
+            wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[data-testid="search_date_depart0"]'))),
+            DEPART_DATE,
+            '2025年9月'
+        ))
 
-        try_form_action("選擇回程日期", lambda: (
-            lambda return_date_input: (
-                driver.execute_script("arguments[0].click();", return_date_input),
-                # 等待日曆加載
-                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days'))),
-                # 導航至 10 月
-                if not navigate_to_month(driver, wait, '2025年10月'):
-                    raise Exception("無法導航至 2025年10月"),
-                # 選擇日期
-                wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, f'li[data-date="{RETURN_DATE}"]'))).click()
-            )
-        )(wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[data-testid="search_date_return0"]')))))
+        try_form_action("選擇回程日期", lambda: select_date(
+            driver,
+            wait,
+            wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[data-testid="search_date_return0"]'))),
+            RETURN_DATE,
+            '2025年10月'
+        ))
 
         try_form_action("提交搜尋", lambda: driver.execute_script("arguments[0].click();", wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-testid="search_btn"]')))))
 
