@@ -127,14 +127,20 @@ def check_price():
         try_form_action("選擇去程日期", lambda: (
             lambda depart_date_input: (
                 driver.execute_script("arguments[0].click();", depart_date_input),
-                wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, f'div[data-date="{DEPART_DATE}"]'))).click()
+                # 等待日曆加載
+                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days'))),
+                # 選擇日期
+                wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, f'li[data-date="{DEPART_DATE}"]'))).click()
             )
         )(wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[data-testid="search_date_depart0"]')))))
 
         try_form_action("選擇回程日期", lambda: (
             lambda return_date_input: (
                 driver.execute_script("arguments[0].click();", return_date_input),
-                wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, f'div[data-date="{RETURN_DATE}"]'))).click()
+                # 等待日曆加載
+                wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days'))),
+                # 選擇日期
+                wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, f'li[data-date="{RETURN_DATE}"]'))).click()
             )
         )(wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[data-testid="search_date_return0"]')))))
 
