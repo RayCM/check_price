@@ -129,6 +129,10 @@ def check_price():
                 driver.execute_script("arguments[0].click();", depart_date_input),
                 # 等待日曆加載
                 wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days'))),
+                # 導航至 9 月
+                while wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__title'))).text != '2025年9月':
+                    driver.find_element(By.CSS_SELECTOR, '.c-fuzzy-calendar-icon-next').click()
+                    time.sleep(1),
                 # 選擇日期
                 wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, f'li[data-date="{DEPART_DATE}"]'))).click()
             )
@@ -139,6 +143,10 @@ def check_price():
                 driver.execute_script("arguments[0].click();", return_date_input),
                 # 等待日曆加載
                 wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days'))),
+                # 導航至 10 月
+                while wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__title'))).text != '2025年10月':
+                    driver.find_element(By.CSS_SELECTOR, '.c-fuzzy-calendar-icon-next').click()
+                    time.sleep(1),
                 # 選擇日期
                 wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, f'li[data-date="{RETURN_DATE}"]'))).click()
             )
