@@ -51,7 +51,10 @@ def save_debug_files(driver, error):
             with open("page_debug.html", "w", encoding="utf-8") as f:
                 f.write(driver.page_source)
         with open("run.log", "a", encoding="utf-8") as f:
-            f.write(str(error) + "\n")
+            f.write(f"錯誤類型：{type(error).__name__}\n")
+            f.write(f"錯誤訊息：{str(error)}\n")
+            f.write(f"當前 URL：{driver.current_url if driver else 'N/A'}\n")
+            f.write(f"堆棧追蹤：\n{str(error.__traceback__)}\n\n")
         print("📝 已儲存 page_debug.html、screenshot.png 與 run.log 作為除錯資料")
     except Exception as e:
         print(f"⚠️ 儲存除錯資料失敗: {e}")
@@ -71,7 +74,6 @@ def try_form_action(description, action, max_attempts=3):
 def navigate_to_month(driver, wait, target_month):
     max_attempts = 12  # 最多嘗試 12 次（一年內的月份）
     attempts = 0
-    last_month = None  # 用於檢查是否卡在同一月份
     while attempts < max_attempts:
         try:
             # 確保日曆標題可見
@@ -80,34 +82,51 @@ def navigate_to_month(driver, wait, target_month):
             if current_month == target_month:
                 print(f"✅ 已到達目標月份：{target_month}")
                 return True
-            if last_month == current_month:
-                print(f"⚠️ 月份未更新，仍為 {current_month}，可能切換按鈕失效")
-                break
-            last_month = current_month
-            # 等待下一月按鈕可點擊
+
+            # 確保下一月按鈕可見且可點擊
             next_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '.c-fuzzy-calendar-icon-next')))
+            
+            # 滾動到按鈕位置，確保可見
+            driver.execute_script("arguments[0].scrollIntoView(true);", next_button)
+            time.sleep(0.5)  # 短暫等待滾動完成
+            
+            # 使用 JavaScript 點擊，避免遮擋問題
             driver.execute_script("arguments[0].click();", next_button)
             print(f"🔄 已點擊下一月按鈕，等待日曆更新...")
-            time.sleep(3)  # 增加延遲，確保日曆更新
-            # 檢查日曆是否刷新
-            wait.until(EC.staleness_of(next_button))  # 等待按鈕變為過時，確認頁面刷新
+
+            # 等待日曆天數區域更新
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days')))
+            
+            # 等待月份標題更新
+            wait.until(lambda d: d.find_element(By.CSS_SELECTOR, '.c-fuzzy-calendar-month__title').text != current_month)
             attempts += 1
         except (TimeoutException, NoSuchElementException, WebDriverException) as e:
             print(f"⚠️ 無法定位月份標題或下一月按鈕，嘗試 {attempts + 1}/{max_attempts}：{str(e)}")
             time.sleep(3)
+            attempts += 1
     print(f"❌ 無法導航至 {target_month}，超過最大嘗試次數")
     return False
 
 def select_date(driver, wait, date_input, target_date, target_month):
+    # 點擊日期輸入框以打開日曆
     driver.execute_script("arguments[0].click();", date_input)
+    
     # 等待日曆加載
     wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days')))
+    
     # 導航至目標月份
     if not navigate_to_month(driver, wait, target_month):
         raise Exception(f"無法導航至 {target_month}")
+    
     # 選擇日期
     try:
         date_element = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, f'li[data-date="{target_date}"]')))
+        
+        # 確保日期元素可見
+        driver.execute_script("arguments[0].scrollIntoView(true);", date_element)
+        time.sleep(0.5)
+        
+        # 點擊日期
         driver.execute_script("arguments[0].click();", date_element)
         print(f"✅ 成功選擇日期：{target_date}")
     except TimeoutException:
@@ -135,7 +154,7 @@ def check_price():
         driver.get(BASE_URL)
 
         print("📝 填寫搜尋條件...")
-        wait = WebDriverWait(driver, 60)
+        wait = WebDriverWait(driver, 120)  # 延長等待時間為 120 秒
 
         try_form_action("選擇來回票", lambda: driver.execute_script("arguments[0].click();", wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-testid="flightType_RT"]')))))
 

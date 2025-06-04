@@ -1,1 +1,6 @@
 test.py
+test_local.py
+chromedriver
+run.log
+page_debug.html
+screenshot.png
