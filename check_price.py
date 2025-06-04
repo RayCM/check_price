@@ -96,6 +96,26 @@ def ensure_dropdown_closed(driver, wait):
     except Exception as e:
         print(f"⚠️ 檢查下拉選單時出錯：{e}")
 
+def handle_popups(driver, wait):
+    try:
+        # 檢查是否有「允許通知」彈窗
+        notification_popup = driver.find_elements(By.XPATH, "//*[contains(text(), '允許通知')]")
+        if notification_popup:
+            print("⚠️ 檢測到通知彈窗，嘗試關閉...")
+            # 嘗試點擊「拒絕」或「關閉」按鈕
+            try:
+                close_button = driver.find_element(By.XPATH, "//*[contains(text(), '不同意') or contains(text(), '關閉')]")
+                driver.execute_script("arguments[0].click();", close_button)
+                print("✅ 成功關閉通知彈窗")
+            except NoSuchElementException:
+                print("⚠️ 找不到關閉按鈕，模擬按下 ESC 鍵...")
+                driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
+            time.sleep(1)
+        else:
+            print("✅ 無通知彈窗")
+    except Exception as e:
+        print(f"⚠️ 處理通知彈窗時出錯：{e}")
+
 def navigate_to_month(driver, wait, target_month):
     max_attempts = 12
     attempts = 0
@@ -138,15 +158,29 @@ def select_date(driver, wait, date_input, target_date, target_month, fallback_da
     time.sleep(0.5)
     
     # 使用 JavaScript 點擊日期輸入框，避免點擊攔截
+    for attempt in range(3):
+        try:
+            driver.execute_script("arguments[0].click();", date_input)
+            print("✅ 使用 JavaScript 成功點擊日期輸入框")
+            break
+        except Exception as e:
+            print(f"⚠️ JavaScript 點擊日期輸入框失敗 (嘗試 {attempt + 1}/3)：{e}")
+            if attempt == 2:
+                raise
+            time.sleep(2)
+
+    # 處理潛在彈窗
+    handle_popups(driver, wait)
+
+    # 等待日曆元素可見並可交互
     try:
-        driver.execute_script("arguments[0].click();", date_input)
-        print("✅ 使用 JavaScript 成功點擊日期輸入框")
+        wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days')))
+        wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days li')))
+        print("✅ 日曆元素已加載")
     except Exception as e:
-        print(f"⚠️ JavaScript 點擊日期輸入框失敗：{e}")
+        print(f"⚠️ 無法加載日曆元素：{e}")
         raise
 
-    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days')))
-    
     if not navigate_to_month(driver, wait, target_month):
         print(f"⚠️ 無法導航至 {target_month}，可能日期尚未正確加載")
         if fallback_date and fallback_month:
