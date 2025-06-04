@@ -80,15 +80,15 @@ def check_price():
 
         try:
             print("📝 選擇來回票...")
-            round_trip = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[aria-label="來回"]')))
-            round_trip.click()
+            round_trip = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-testid="flightType_RT"]')))
+            driver.execute_script("arguments[0].click();", round_trip)  # 使用 JavaScript 點擊
             time.sleep(random.uniform(0.5, 1.5))
         except Exception as e:
             print(f"🚫 選擇來回票失敗：{str(e)}")
-            # 嘗試備用選擇器
+            # 備用選擇器（基於 aria-label）
             try:
-                round_trip = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '.flight-trip-type-button[data-type="round"]')))
-                round_trip.click()
+                round_trip_label = wait.until(EC.element_to_be_clickable((By.XPATH, '//div[@aria-label="來回"]')))
+                round_trip_label.click()
                 time.sleep(random.uniform(0.5, 1.5))
             except Exception as e2:
                 print(f"🚫 備用選擇器失敗：{str(e2)}")
@@ -120,7 +120,7 @@ def check_price():
 
         try:
             print("📝 選擇去程日期...")
-            depart_date_input = wait.until(EC.element_to_be_clickable((By.XPATH, '//input[@placeholder="出發日期"]/following-sibling::div')))
+            depart_date_input = wait.until(EC.element_to_be_clickable((By.XPATH, '//input[@placeholder="任何日期"]')))
             depart_date_input.click()
             wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[aria-label="2025年9月27日"]'))).click()
             time.sleep(random.uniform(0.5, 1.5))
@@ -130,7 +130,7 @@ def check_price():
 
         try:
             print("📝 選擇回程日期...")
-            return_date_input = wait.until(EC.element_to_be_clickable((By.XPATH, '//input[@placeholder="回程日期"]/following-sibling::div')))
+            return_date_input = wait.until(EC.element_to_be_clickable((By.XPATH, '(//input[@placeholder="任何日期"])[2]')))
             return_date_input.click()
             wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[aria-label="2025年10月11日"]'))).click()
             time.sleep(random.uniform(0.5, 1.5))
@@ -140,7 +140,7 @@ def check_price():
 
         try:
             print("📝 提交搜尋...")
-            search_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-spm-anchor-id="FlightSearchForm_FlightSearchButton"]')))
+            search_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-testid="search_btn"]')))
             search_button.click()
         except Exception as e:
             print(f"🚫 提交搜尋失敗：{str(e)}")
@@ -188,11 +188,9 @@ def check_price():
     except (TimeoutException, NoSuchElementException, WebDriverException) as e:
         print("🚫 Selenium 錯誤：", e)
         save_debug_files(driver, e)
-        send_line_notification(f"⚠️ 查詢失敗: {str(e)}")
     except Exception as e:
         print("🚫 其他錯誤：", e)
         save_debug_files(driver, e)
-        send_line_notification(f"⚠️ 查詢失敗: {str(e)}")
     finally:
         if driver:
             driver.quit()
