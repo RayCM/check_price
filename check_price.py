@@ -4,6 +4,7 @@ import random
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
@@ -87,15 +88,26 @@ def navigate_to_month(driver, wait, target_month):
                 print(f"✅ 已到達目標月份：{target_month}")
                 return True
 
+            # 檢查「下一月」按鈕是否可點擊
+            next_buttons = driver.find_elements(By.CSS_SELECTOR, '.c-fuzzy-calendar-icon-next')
+            if not next_buttons:
+                print("⚠️ 找不到下一月按鈕")
+                return False
+            
             next_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, '.c-fuzzy-calendar-icon-next')))
+            if 'disabled' in next_button.get_attribute('class'):
+                print(f"⚠️ 下一月按鈕被禁用，無法切換到 {target_month}")
+                return False
+
+            # 模擬更自然的點擊行為
             driver.execute_script("arguments[0].scrollIntoView(true);", next_button)
-            time.sleep(1)  # 確保按鈕可見
-            driver.execute_script("arguments[0].click();", next_button)
+            time.sleep(1)
+            next_button.send_keys(Keys.ENTER)  # 使用鍵盤操作模擬點擊
             print(f"🔄 已點擊下一月按鈕，等待日曆更新...")
 
-            # 等待新月份加載
-            wait.until(lambda d: d.find_element(By.CSS_SELECTOR, '.c-fuzzy-calendar-month__title').text != current_month or 
-                       EC.presence_of_all_elements_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days li')))
+            # 等待新月份加載完成
+            wait.until(lambda d: d.find_element(By.CSS_SELECTOR, '.c-fuzzy-calendar-month__title').text != current_month)
+            wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days li')))
             attempts += 1
         except (TimeoutException, NoSuchElementException, WebDriverException) as e:
             print(f"⚠️ 無法定位月份標題或下一月按鈕，嘗試 {attempts + 1}/{max_attempts}：{str(e)}")
@@ -105,7 +117,10 @@ def navigate_to_month(driver, wait, target_month):
     return False
 
 def select_date(driver, wait, date_input, target_date, target_month, fallback_date=None, fallback_month=None):
-    driver.execute_script("arguments[0].click();", date_input)
+    # 點擊日期輸入框以打開日曆
+    driver.execute_script("arguments[0].scrollIntoView(true);", date_input)
+    time.sleep(0.5)
+    date_input.click()
     wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.c-fuzzy-calendar-month__days')))
     
     if not navigate_to_month(driver, wait, target_month):
@@ -119,23 +134,28 @@ def select_date(driver, wait, date_input, target_date, target_month, fallback_da
             raise Exception(f"無法導航至 {target_month}，且無備用日期")
     
     try:
-        # 確保日期元素可見並可點擊
+        # 檢查日期元素是否存在並可點擊
+        date_elements = driver.find_elements(By.CSS_SELECTOR, f'li[data-date="{target_date}"]')
+        if not date_elements:
+            print(f"⚠️ 找不到日期 {target_date} 的元素")
+            raise TimeoutException(f"日期 {target_date} 不存在")
+
         date_element = wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, f'li[data-date="{target_date}"]')))
         wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, f'li[data-date="{target_date}"]')))
         driver.execute_script("arguments[0].scrollIntoView(true);", date_element)
         time.sleep(0.5)
-        driver.execute_script("arguments[0].click();", date_element)
+        date_element.send_keys(Keys.ENTER)  # 使用鍵盤操作模擬點擊
         print(f"✅ 成功選擇日期：{target_date}")
         return target_date
-    except TimeoutException:
-        print(f"⚠️ 無法選擇日期 {target_date}，可能元素未正確加載")
+    except (TimeoutException, WebDriverException) as e:
+        print(f"⚠️ 無法選擇日期 {target_date}，可能元素未正確加載：{str(e)}")
         if fallback_date:
             print(f"🔄 嘗試使用備用日期：{fallback_date}")
             date_element = wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, f'li[data-date="{fallback_date}"]')))
             wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, f'li[data-date="{fallback_date}"]')))
             driver.execute_script("arguments[0].scrollIntoView(true);", date_element)
             time.sleep(0.5)
-            driver.execute_script("arguments[0].click();", date_element)
+            date_element.send_keys(Keys.ENTER)
             print(f"✅ 成功選擇備用日期：{fallback_date}")
             return fallback_date
         raise
