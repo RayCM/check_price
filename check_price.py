@@ -7,7 +7,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException, ElementClickInterceptedException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
 from linebot.v3.messaging import MessagingApi, Configuration, ApiClient
 from linebot.v3.messaging.models import TextMessage, PushMessageRequest
 
@@ -75,7 +75,7 @@ def try_form_action(description, action, max_attempts=3):
             time.sleep(2)
     return False
 
-def ensure_dropdown_closed(driver, wait):
+def ensure_dropdown_closed(driver):
     try:
         dropdown = driver.find_elements(By.CSS_SELECTOR, 'div[data-testid="search_result_box"]')
         if dropdown:
@@ -91,23 +91,48 @@ def ensure_dropdown_closed(driver, wait):
     except Exception as e:
         print(f"⚠️ 檢查下拉選單時出錯：{e}")
 
-def handle_popups(driver, wait):
+def handle_popups(driver):
     try:
-        # 等待通知彈窗出現，最多 5 秒
-        notification_popup = wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(), '允許通知')]")))
-        print("⚠️ 檢測到通知彈窗，嘗試關閉...")
-        try:
-            close_button = driver.find_element(By.XPATH, "//*[contains(text(), '不同意') or contains(text(), '關閉')]")
-            close_button.click()
-            print("✅ 成功關閉通知彈窗")
-        except NoSuchElementException:
-            print("⚠️ 找不到關閉按鈕，模擬按下 ESC 鍵...")
-            driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
-        time.sleep(1)
-    except TimeoutException:
+        # Find the close button for the notification popup
+        close_button = driver.find_element(By.XPATH, "//*[contains(text(), '不同意') or contains(text(), '關閉')]")
+        # Use JavaScript to click it
+        driver.execute_script("arguments[0].click();", close_button)
+        print("✅ 成功關閉通知彈窗")
+    except NoSuchElementException:
         print("✅ 無通知彈窗")
     except Exception as e:
         print(f"⚠️ 處理通知彈窗時出錯：{e}")
+        # Fallback: press ESC
+        driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
+
+def select_date(driver, wait, date_input, target_date):
+    # Click on date input to open calendar
+    driver.execute_script("arguments[0].click();", date_input)
+    # Wait for calendar to be present
+    calendar = wait.until(EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'c-fuzzy-calendar')]")))
+    # Get current month
+    month_header = calendar.find_element(By.XPATH, ".//div[contains(@class, 'c-fuzzy-calendar-month-header')]/span")
+    current_month_text = month_header.text
+    # Parse target year and month
+    target_year, target_month = map(int, target_date.split('-')[:2])
+    # Convert target month to Chinese
+    months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
+    target_month_chinese = months[target_month - 1]
+    target_year_month_chinese = f"{target_year} 年 {target_month_chinese}"
+    # Navigate to correct month
+    while current_month_text != target_year_month_chinese:
+        next_button = calendar.find_element(By.XPATH, ".//div[contains(@class, 'c-fuzzy-calendar-icon-next')]")
+        if 'disabled' in next_button.get_attribute('class'):
+            raise Exception(f"Cannot navigate to {target_year_month_chinese}")
+        driver.execute_script("arguments[0].click();", next_button)
+        # Wait for month to change
+        wait.until(EC.staleness_of(month_header))
+        month_header = calendar.find_element(By.XPATH, ".//div[contains(@class, 'c-fuzzy-calendar-month-header')]/span")
+        current_month_text = month_header.text
+    # Select date
+    day = target_date.split('-')[2]
+    date_element = wait.until(EC.element_to_be_clickable((By.XPATH, f".//span[text()='{day}']", calendar)))
+    driver.execute_script("arguments[0].click();", date_element)
 
 def check_price():
     print("🔍 開始查詢 Trip.com...")
@@ -134,7 +159,7 @@ def check_price():
 
         wait = WebDriverWait(driver, 120)
 
-        handle_popups(driver, wait)
+        handle_popups(driver)
 
         print("📝 填寫搜尋條件...")
 
@@ -162,23 +187,17 @@ def check_price():
                 wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-testid="0"]'))),
                 driver.execute_script("arguments[0].click();", driver.find_element(By.CSS_SELECTOR, 'div[data-testid="0"]')),
                 arrive_wrapper.find_element(By.CSS_SELECTOR, 'input[data-testid="search_city_to0"]').send_keys(Keys.ENTER),
-                ensure_dropdown_closed(driver, wait)
+                ensure_dropdown_closed(driver)
             )
         )(wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-testid="search_city_to0_wrapper"]')))))
 
-        # 直接設定去程日期
-        try_form_action("設定去程日期", lambda: (
-            depart_date_input := wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'input[data-testid="search_date_depart0"]'))),
-            depart_date_input.clear(),
-            depart_date_input.send_keys(DEPART_DATE)  # 注意：如果 YYYY-MM-DD 格式無效，請檢查輸入框格式（例如改為 27/09/2025）
-        ))
+        # Set departure date
+        depart_date_input = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[data-testid="search_date_depart0"]')))
+        try_form_action("選擇去程日期", lambda: select_date(driver, wait, depart_date_input, DEPART_DATE))
 
-        # 直接設定回程日期
-        try_form_action("設定回程日期", lambda: (
-            return_date_input := wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'input[data-testid="search_date_return0"]'))),
-            return_date_input.clear(),
-            return_date_input.send_keys(RETURN_DATE)  # 注意：如果 YYYY-MM-DD 格式無效，請檢查輸入框格式（例如改為 11/10/2025）
-        ))
+        # Set return date
+        return_date_input = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[data-testid="search_date_return0"]')))
+        try_form_action("選擇回程日期", lambda: select_date(driver, wait, return_date_input, RETURN_DATE))
 
         try_form_action("提交搜尋", lambda: driver.execute_script("arguments[0].click();", wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-testid="search_btn"]')))))
 
@@ -221,7 +240,7 @@ def check_price():
         if not found:
             print("❗ 沒有找到符合條件的航班")
 
-    except (TimeoutException, NoSuchElementException, WebDriverException, ElementClickInterceptedException) as e:
+    except (TimeoutException, NoSuchElementException, WebDriverException) as e:
         print("🚫 Selenium 錯誤：", e)
         save_debug_files(driver, e)
     except Exception as e:
