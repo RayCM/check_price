@@ -7,7 +7,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException, ElementClickInterceptedException, StaleElementReferenceException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException, ElementClickInterceptedException
 from linebot.v3.messaging import MessagingApi, Configuration, ApiClient
 from linebot.v3.messaging.models import TextMessage, PushMessageRequest
 
@@ -27,8 +27,6 @@ DEPART_CITY = 'TPE'
 ARRIVE_CITY = 'OSL'
 DEPART_DATE = '2025-09-27'  # 目標出發日期
 RETURN_DATE = '2025-10-11'  # 目標回程日期
-FALLBACK_DEPART_DATE = '2025-06-07'  # 備用出發日期
-FALLBACK_RETURN_DATE = '2025-06-14'  # 備用回程日期
 
 def send_line_notification(message):
     try:
@@ -95,189 +93,21 @@ def ensure_dropdown_closed(driver, wait):
 
 def handle_popups(driver, wait):
     try:
-        notification_popup = driver.find_elements(By.XPATH, "//*[contains(text(), '允許通知')]")
-        if notification_popup:
-            print("⚠️ 檢測到通知彈窗，嘗試關閉...")
-            try:
-                close_button = driver.find_element(By.XPATH, "//*[contains(text(), '不同意') or contains(text(), '關閉')]")
-                driver.execute_script("arguments[0].click();", close_button)
-                print("✅ 成功關閉通知彈窗")
-            except NoSuchElementException:
-                print("⚠️ 找不到關閉按鈕，模擬按下 ESC 鍵...")
-                driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
-            time.sleep(1)
-        else:
-            print("✅ 無通知彈窗")
+        # 等待通知彈窗出現，最多 5 秒
+        notification_popup = wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(), '允許通知')]")))
+        print("⚠️ 檢測到通知彈窗，嘗試關閉...")
+        try:
+            close_button = driver.find_element(By.XPATH, "//*[contains(text(), '不同意') or contains(text(), '關閉')]")
+            close_button.click()
+            print("✅ 成功關閉通知彈窗")
+        except NoSuchElementException:
+            print("⚠️ 找不到關閉按鈕，模擬按下 ESC 鍵...")
+            driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
+        time.sleep(1)
+    except TimeoutException:
+        print("✅ 無通知彈窗")
     except Exception as e:
         print(f"⚠️ 處理通知彈窗時出錯：{e}")
-
-def wait_for_page_stable(driver):
-    try:
-        WebDriverWait(driver, 10).until(lambda d: d.execute_script("return document.readyState === 'complete';"))
-        time.sleep(1)  # 額外等待 1 秒
-        print("✅ 頁面穩定")
-    except Exception as e:
-        print(f"⚠️ 頁面穩定性檢查失敗：{e}")
-
-def check_for_js_errors(driver):
-    try:
-        logs = driver.get_log("browser")
-        errors = [log for log in logs if log['level'] == 'SEVERE']
-        if errors:
-            print("⚠️ 檢測到 JavaScript 錯誤：")
-            for error in errors:
-                print(f" - {error['message']}")
-        else:
-            print("✅ 無 JavaScript 錯誤")
-        return errors
-    except Exception as e:
-        print(f"⚠️ 檢查 JavaScript 錯誤失敗：{e}")
-        return []
-
-def switch_to_iframe_or_shadow_dom(driver, wait):
-    try:
-        iframes = driver.find_elements(By.TAG_NAME, "iframe")
-        for iframe in iframes:
-            driver.switch_to.frame(iframe)
-            try:
-                calendar = wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(), '2025 年')]")))
-                print("✅ 找到 iframe 中的日曆")
-                return True
-            except:
-                driver.switch_to.default_content()
-        print("✅ 無 iframe 包含日曆")
-        return False
-    except (StaleElementReferenceException, Exception) as e:
-        print(f"⚠️ 檢查 iframe 失敗：{e}")
-        driver.switch_to.default_content()
-        return False
-
-def navigate_to_month(driver, wait, target_month):
-    max_attempts = 12
-    attempts = 0
-    while attempts < max_attempts:
-        try:
-            current_month = wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(), '2025 年')]"))).text
-            print(f"📅 當前月份：{current_month}")
-            if current_month == target_month:
-                print(f"✅ 已到達目標月份：{target_month}")
-                return True
-
-            next_buttons = driver.find_elements(By.XPATH, "//*[contains(@class, 'c-fuzzy-calendar-icon-next')]")
-            if not next_buttons:
-                print("⚠️ 找不到下一月按鈕")
-                return False
-            
-            next_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//*[contains(@class, 'c-fuzzy-calendar-icon-next')]")))
-            if 'disabled' in next_button.get_attribute('class'):
-                print(f"⚠️ 下一月按鈕被禁用，無法切換到 {target_month}")
-                return False
-
-            driver.execute_script("arguments[0].scrollIntoView(true);", next_button)
-            time.sleep(1)
-            next_button.send_keys(Keys.ENTER)
-            print(f"🔄 已點擊下一月按鈕，等待日曆更新...")
-
-            wait.until(lambda d: d.find_element(By.XPATH, "//*[contains(text(), '2025 年')]").text != current_month)
-            wait.until(EC.presence_of_all_elements_located((By.XPATH, "//*[contains(text(), '2025 年')]//following-sibling::*[text()]")))
-            attempts += 1
-        except (TimeoutException, NoSuchElementException, WebDriverException, StaleElementReferenceException) as e:
-            print(f"⚠️ 無法定位月份標題或下一月按鈕，嘗試 {attempts + 1}/{max_attempts}：{str(e)}")
-            time.sleep(2)
-            attempts += 1
-    print(f"❌ 無法導航至 {target_month}，超過最大嘗試次數")
-    return False
-
-def select_date(driver, wait, date_input, target_date, target_month, fallback_date=None, fallback_month=None):
-    driver.execute_script("arguments[0].scrollIntoView(true);", date_input)
-    time.sleep(0.5)
-    
-    for attempt in range(3):
-        try:
-            driver.execute_script("arguments[0].click();", date_input)
-            print("✅ 使用 JavaScript 成功點擊日期輸入框")
-            break
-        except Exception as e:
-            print(f"⚠️ JavaScript 點擊日期輸入框失敗 (嘗試 {attempt + 1}/3)：{e}")
-            if attempt == 2:
-                raise
-            time.sleep(2)
-
-    handle_popups(driver, wait)
-    wait_for_page_stable(driver)
-    check_for_js_errors(driver)
-
-    # 檢查 iframe 或影子 DOM
-    in_iframe = switch_to_iframe_or_shadow_dom(driver, wait)
-
-    # 增強日曆等待邏輯
-    try:
-        # 等待日曆容器
-        calendar_container = wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(), '2025 年')]")))
-        print("✅ 日曆容器已存在於 DOM")
-
-        # 等待 JavaScript 執行完成
-        wait.until(lambda d: d.execute_script("return window.jQuery && jQuery.active === 0;") or True)
-        print("✅ JavaScript 執行完成")
-
-        # 等待日期元素可見
-        date_elements = wait.until(EC.visibility_of_all_elements_located((By.XPATH, "//div[contains(@class, 'c-fuzzy-calendar-month')]//span[text()]")))
-        print(f"✅ 找到 {len(date_elements)} 個日期元素")
-
-        # 記錄日曆結構
-        calendar_html = driver.execute_script("return document.querySelector('body').innerHTML;")
-        print(f"📋 日曆元素 HTML：{calendar_html[:1000]}...")
-
-    except Exception as e:
-        print(f"⚠️ 無法加載日曆元素：{e}")
-        try:
-            calendar_html = driver.execute_script("return document.querySelector('body').innerHTML || '未找到日曆元素';")
-            print(f"📋 日曆元素 HTML：{calendar_html[:1000]}...")
-        except Exception as log_e:
-            print(f"⚠️ 無法記錄日曆元素 HTML：{log_e}")
-        if in_iframe:
-            driver.switch_to.default_content()
-        raise
-
-    if not navigate_to_month(driver, wait, target_month):
-        print(f"⚠️ 無法導航至 {target_month}，可能日期尚未正確加載")
-        if fallback_date and fallback_month:
-            print(f"🔄 嘗試使用備用日期：{fallback_date} ({fallback_month})")
-            if not navigate_to_month(driver, wait, fallback_month):
-                if in_iframe:
-                    driver.switch_to.default_content()
-                raise Exception(f"無法導航至備用月份 {fallback_month}")
-            target_date = fallback_date
-        else:
-            if in_iframe:
-                driver.switch_to.default_content()
-            raise Exception(f"無法導航至 {target_month}，且無備用日期")
-    
-    try:
-        # 直接匹配日期數字
-        date_element = wait.until(EC.element_to_be_clickable((By.XPATH, f"//div[contains(@class, 'c-fuzzy-calendar-month')]//span[text()='{target_date.split('-')[-1]}']")))
-        driver.execute_script("arguments[0].scrollIntoView(true);", date_element)
-        time.sleep(0.5)
-        date_element.send_keys(Keys.ENTER)
-        print(f"✅ 成功選擇日期：{target_date}")
-        if in_iframe:
-            driver.switch_to.default_content()
-        return target_date
-    except (TimeoutException, WebDriverException, StaleElementReferenceException) as e:
-        print(f"⚠️ 無法選擇日期 {target_date}，可能元素未正確加載：{str(e)}")
-        if fallback_date:
-            print(f"🔄 嘗試使用備用日期：{fallback_date}")
-            date_element = wait.until(EC.element_to_be_clickable((By.XPATH, f"//div[contains(@class, 'c-fuzzy-calendar-month')]//span[text()='{fallback_date.split('-')[-1]}']")))
-            driver.execute_script("arguments[0].scrollIntoView(true);", date_element)
-            time.sleep(0.5)
-            date_element.send_keys(Keys.ENTER)
-            print(f"✅ 成功選擇備用日期：{fallback_date}")
-            if in_iframe:
-                driver.switch_to.default_content()
-            return fallback_date
-        if in_iframe:
-            driver.switch_to.default_content()
-        raise
 
 def check_price():
     print("🔍 開始查詢 Trip.com...")
@@ -302,8 +132,11 @@ def check_price():
         print("🌐 前往 Trip.com 首頁...")
         driver.get(BASE_URL)
 
-        print("📝 填寫搜尋條件...")
         wait = WebDriverWait(driver, 120)
+
+        handle_popups(driver, wait)
+
+        print("📝 填寫搜尋條件...")
 
         try_form_action("選擇來回票", lambda: driver.execute_script("arguments[0].click();", wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-testid="flightType_RT"]')))))
 
@@ -333,26 +166,18 @@ def check_price():
             )
         )(wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-testid="search_city_to0_wrapper"]')))))
 
-        # 選擇去程日期
-        final_depart_date = try_form_action("選擇去程日期", lambda: select_date(
-            driver,
-            wait,
-            wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[data-testid="search_date_depart0"]'))),
-            DEPART_DATE,
-            '2025年9月',
-            FALLBACK_DEPART_DATE,
-            '2025年6月'
+        # 直接設定去程日期
+        try_form_action("設定去程日期", lambda: (
+            depart_date_input := wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'input[data-testid="search_date_depart0"]'))),
+            depart_date_input.clear(),
+            depart_date_input.send_keys(DEPART_DATE)  # 注意：如果 YYYY-MM-DD 格式無效，請檢查輸入框格式（例如改為 27/09/2025）
         ))
 
-        # 選擇回程日期
-        final_return_date = try_form_action("選擇回程日期", lambda: select_date(
-            driver,
-            wait,
-            wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[data-testid="search_date_return0"]'))),
-            RETURN_DATE,
-            '2025年10月',
-            FALLBACK_RETURN_DATE,
-            '2025年6月'
+        # 直接設定回程日期
+        try_form_action("設定回程日期", lambda: (
+            return_date_input := wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'input[data-testid="search_date_return0"]'))),
+            return_date_input.clear(),
+            return_date_input.send_keys(RETURN_DATE)  # 注意：如果 YYYY-MM-DD 格式無效，請檢查輸入框格式（例如改為 11/10/2025）
         ))
 
         try_form_action("提交搜尋", lambda: driver.execute_script("arguments[0].click();", wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-testid="search_btn"]')))))
