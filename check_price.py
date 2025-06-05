@@ -7,7 +7,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException, ElementClickInterceptedException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException, ElementClickInterceptedException, StaleElementReferenceException
 from linebot.v3.messaging import MessagingApi, Configuration, ApiClient
 from linebot.v3.messaging.models import TextMessage, PushMessageRequest
 
@@ -113,7 +113,6 @@ def handle_popups(driver, wait):
 
 def wait_for_page_stable(driver):
     try:
-        # 等待頁面處於穩定狀態
         WebDriverWait(driver, 10).until(lambda d: d.execute_script("return document.readyState === 'complete';"))
         time.sleep(1)  # 額外等待 1 秒
         print("✅ 頁面穩定")
@@ -137,7 +136,6 @@ def check_for_js_errors(driver):
 
 def switch_to_iframe_or_shadow_dom(driver, wait):
     try:
-        # 檢查是否有 iframe 包含日曆
         iframes = driver.find_elements(By.TAG_NAME, "iframe")
         for iframe in iframes:
             driver.switch_to.frame(iframe)
@@ -149,7 +147,7 @@ def switch_to_iframe_or_shadow_dom(driver, wait):
                 driver.switch_to.default_content()
         print("✅ 無 iframe 包含日曆")
         return False
-    except Exception as e:
+    except (StaleElementReferenceException, Exception) as e:
         print(f"⚠️ 檢查 iframe 失敗：{e}")
         driver.switch_to.default_content()
         return False
@@ -181,9 +179,9 @@ def navigate_to_month(driver, wait, target_month):
             print(f"🔄 已點擊下一月按鈕，等待日曆更新...")
 
             wait.until(lambda d: d.find_element(By.XPATH, "//*[contains(text(), '2025 年')]").text != current_month)
-            wait.until(EC.presence_of_all_elements_located((By.XPATH, "//*[contains(text(), '2025 年')]//following-sibling::*[text()='27']")))
+            wait.until(EC.presence_of_all_elements_located((By.XPATH, "//*[contains(text(), '2025 年')]//following-sibling::*[text()]")))
             attempts += 1
-        except (TimeoutException, NoSuchElementException, WebDriverException) as e:
+        except (TimeoutException, NoSuchElementException, WebDriverException, StaleElementReferenceException) as e:
             print(f"⚠️ 無法定位月份標題或下一月按鈕，嘗試 {attempts + 1}/{max_attempts}：{str(e)}")
             time.sleep(2)
             attempts += 1
@@ -214,17 +212,21 @@ def select_date(driver, wait, date_input, target_date, target_month, fallback_da
 
     # 增強日曆等待邏輯
     try:
-        # 等待日曆容器（根據月份標題）
+        # 等待日曆容器
         calendar_container = wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(), '2025 年')]")))
         print("✅ 日曆容器已存在於 DOM")
-        
-        # 等待日期元素可見（直接匹配日期數字）
-        date_elements = wait.until(EC.visibility_of_all_elements_located((By.XPATH, "//*[contains(text(), '2025 年')]//following-sibling::*[text()]")))
+
+        # 等待 JavaScript 執行完成
+        wait.until(lambda d: d.execute_script("return window.jQuery && jQuery.active === 0;") or True)
+        print("✅ JavaScript 執行完成")
+
+        # 等待日期元素可見
+        date_elements = wait.until(EC.visibility_of_all_elements_located((By.XPATH, "//div[contains(@class, 'c-fuzzy-calendar-month')]//span[text()]")))
         print(f"✅ 找到 {len(date_elements)} 個日期元素")
 
         # 記錄日曆結構
         calendar_html = driver.execute_script("return document.querySelector('body').innerHTML;")
-        print(f"📋 日曆元素 HTML：{calendar_html[:1000]}...")  # 截斷以避免日誌過長
+        print(f"📋 日曆元素 HTML：{calendar_html[:1000]}...")
 
     except Exception as e:
         print(f"⚠️ 無法加載日曆元素：{e}")
@@ -253,7 +255,7 @@ def select_date(driver, wait, date_input, target_date, target_month, fallback_da
     
     try:
         # 直接匹配日期數字
-        date_element = wait.until(EC.element_to_be_clickable((By.XPATH, f"//*[contains(text(), '{target_month}')]//following-sibling::*[text()='{target_date.split('-')[-1]}']")))
+        date_element = wait.until(EC.element_to_be_clickable((By.XPATH, f"//div[contains(@class, 'c-fuzzy-calendar-month')]//span[text()='{target_date.split('-')[-1]}']")))
         driver.execute_script("arguments[0].scrollIntoView(true);", date_element)
         time.sleep(0.5)
         date_element.send_keys(Keys.ENTER)
@@ -261,11 +263,11 @@ def select_date(driver, wait, date_input, target_date, target_month, fallback_da
         if in_iframe:
             driver.switch_to.default_content()
         return target_date
-    except (TimeoutException, WebDriverException) as e:
+    except (TimeoutException, WebDriverException, StaleElementReferenceException) as e:
         print(f"⚠️ 無法選擇日期 {target_date}，可能元素未正確加載：{str(e)}")
         if fallback_date:
             print(f"🔄 嘗試使用備用日期：{fallback_date}")
-            date_element = wait.until(EC.element_to_be_clickable((By.XPATH, f"//*[contains(text(), '{fallback_month}')]//following-sibling::*[text()='{fallback_date.split('-')[-1]}']")))
+            date_element = wait.until(EC.element_to_be_clickable((By.XPATH, f"//div[contains(@class, 'c-fuzzy-calendar-month')]//span[text()='{fallback_date.split('-')[-1]}']")))
             driver.execute_script("arguments[0].scrollIntoView(true);", date_element)
             time.sleep(0.5)
             date_element.send_keys(Keys.ENTER)
@@ -286,6 +288,7 @@ def check_price():
     options.add_argument('--remote-debugging-port=9222')
     options.add_argument('--window-size=1920,1080')
     options.add_argument('--enable-logging')  # 啟用瀏覽器日誌
+    options.add_argument('--disable-extensions')  # 禁用擴充功能
     user_agents = [
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
