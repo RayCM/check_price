@@ -4,6 +4,7 @@ import random
 import traceback
 import tempfile
 import subprocess
+import psutil
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -45,7 +46,7 @@ def extract_time_from_testid(testid):
     except Exception:
         return ''
 
-def save_debug_files(driver, error):
+def save_debug_files(driver, error, temp_user_data_dir=None):
     try:
         if driver:
             driver.save_screenshot("screenshot.png")
@@ -58,6 +59,7 @@ def save_debug_files(driver, error):
             f.write(f"當前時間：{time.strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write(f"Chrome 版本：{subprocess.getoutput('google-chrome --version')}\n")
             f.write(f"ChromeDriver 版本：{subprocess.getoutput('chromedriver --version')}\n")
+            f.write(f"臨時用戶數據目錄：{temp_user_data_dir if temp_user_data_dir else 'N/A'}\n")
             f.write(f"堆棧追蹤：\n{''.join(traceback.format_tb(error.__traceback__))}\n\n")
         print("📝 已儲存除錯資料")
     except Exception as e:
@@ -132,11 +134,20 @@ def select_date(driver, wait, date_input, target_date):
 
 def cleanup_chromedriver():
     try:
-        # 終止現有的 ChromeDriver 進程
-        subprocess.run(['pkill', '-f', 'chromedriver'], check=False)
+        # 使用 psutil 終止所有 ChromeDriver 進程
+        for proc in psutil.process_iter(['name']):
+            if 'chromedriver' in proc.info['name'].lower():
+                proc.terminate()
+                proc.wait(timeout=3)  # 等待進程終止
         print("✅ 已清理殞地 ChromeDriver 進程")
     except Exception as e:
         print(f"⚠️ 清理 ChromeDriver 進程失敗：{e}")
+    try:
+        # 備用清理方法
+        subprocess.run(['killall', 'chromedriver'], check=False)
+        print("✅ 已執行備用清理（killall chromedriver）")
+    except Exception:
+        pass
 
 def check_price():
     print("🔍 開始查詢 Trip.com...")
@@ -149,18 +160,21 @@ def check_price():
     options.add_argument('--window-size=1920,1080')
     # 使用臨時用戶數據目錄
     temp_user_data_dir = tempfile.mkdtemp()
+    print(f"📁 使用臨時用戶數據目錄：{temp_user_data_dir}")
     options.add_argument(f'--user-data-dir={temp_user_data_dir}')
     user_agents = [
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36',
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36'
     ]
     options.add_argument(f'user-agent={random.choice(user_agents)}')
 
     driver = None
     try:
+        # 確保臨時目錄可寫
+        os.chmod(temp_user_data_dir, 0o777)
         driver = webdriver.Chrome(options=options)
         driver.get(BASE_URL)
-        wait = WebDriverWait(driver, 20)  # 縮短超時時間
+        wait = WebDriverWait(driver, 20)
         handle_popups(driver)
 
         try_form_action("選擇來回票", lambda: driver.execute_script("arguments[0].click();", wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-testid="flightType_RT"]')))))
@@ -225,16 +239,17 @@ def check_price():
 
     except (TimeoutException, NoSuchElementException, WebDriverException) as e:
         print(f"🚫 Selenium 錯誤：{e}")
-        save_debug_files(driver, e)
+        save_debug_files(driver, e, temp_user_data_dir)
     finally:
         if driver:
             driver.quit()
             print("🧹 WebDriver 已關閉")
-            # 清理臨時用戶數據目錄
-            try:
-                subprocess.run(['rm', '-rf', temp_user_data_dir], check=False)
-            except Exception:
-                pass
+        # 清理臨時用戶數據目錄
+        try:
+            subprocess.run(['rm', '-rf', temp_user_data_dir], check=False)
+            print(f"🧹 已清理臨時用戶數據目錄：{temp_user_data_dir}")
+        except Exception as e:
+            print(f"⚠️ 清理臨時目錄失敗：{e}")
 
 if __name__ == "__main__":
     check_price()
