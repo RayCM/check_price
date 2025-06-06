@@ -4,7 +4,11 @@ import random
 import traceback
 import tempfile
 import subprocess
-import psutil
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -134,27 +138,26 @@ def select_date(driver, wait, date_input, target_date):
 
 def cleanup_chromedriver():
     try:
-        # 使用 psutil 終止所有 ChromeDriver 進程
-        for proc in psutil.process_iter(['name']):
-            if 'chromedriver' in proc.info['name'].lower():
-                proc.terminate()
-                proc.wait(timeout=3)  # 等待進程終止
-        print("✅ 已清理殞地 ChromeDriver 進程")
+        if PSUTIL_AVAILABLE:
+            # 使用 psutil 終止所有 ChromeDriver 進程
+            for proc in psutil.process_iter(['name']):
+                if 'chromedriver' in proc.info['name'].lower():
+                    proc.terminate()
+                    proc.wait(timeout=3)  # 等待進程終止
+            print("✅ 已使用 psutil 清理殞地 ChromeDriver 進程")
+        else:
+            # 回退到 subprocess 清理
+            subprocess.run(['killall', 'chromedriver'], check=False)
+            print("✅ 已使用 killall 清理殞地 ChromeDriver 進程")
     except Exception as e:
         print(f"⚠️ 清理 ChromeDriver 進程失敗：{e}")
-    try:
-        # 備用清理方法
-        subprocess.run(['killall', 'chromedriver'], check=False)
-        print("✅ 已執行備用清理（killall chromedriver）")
-    except Exception:
-        pass
 
 def check_price():
     print("🔍 開始查詢 Trip.com...")
     cleanup_chromedriver()  # 清理殞地進程
 
     options = Options()
-    # options.add_argument('--headless')  # 移除以便除錯，可根據需要啟用
+    options.add_argument('--headless')  # 在 GitHub Actions 中啟用 headless
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument('--window-size=1920,1080')
