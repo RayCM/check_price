@@ -2,50 +2,36 @@ name: Run Check Price Script
 
 on:
   schedule:
-    - cron: '0 * * * *'  # 每小時整點執行（UTC 時間）
+    - cron: '0 * * * *'  # 每小時整點執行（UTC）
   workflow_dispatch:  # 允許手動觸發
 
 jobs:
   run-check-price:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update || true
-          sudo apt-get install -y --no-install-recommends unzip
-      - name: Install Chrome and ChromeDriver
-        run: |
-          # 下載並安裝 Chrome 136.0.7103.113
-          wget -q --tries=3 "https://storage.googleapis.com/chrome-for-testing-public/136.0.7103.113/linux64/chrome-linux64.zip" -O chrome-linux64.zip || { echo "下載 Chrome 失敗"; exit 1; }
-          unzip chrome-linux64.zip || { echo "解壓 Chrome 失敗"; exit 1; }
-          sudo mv chrome-linux64/chrome /usr/local/bin/ || { echo "移動 Chrome 失敗"; exit 1; }
-          # 下載並安裝 ChromeDriver 136.0.7103.113
-          wget -q --tries=3 "https://storage.googleapis.com/chrome-for-testing-public/136.0.7103.113/linux64/chromedriver-linux64.zip" -O chromedriver-linux64.zip || { echo "下載 ChromeDriver 失敗"; exit 1; }
-          unzip chromedriver-linux64.zip || { echo "解壓 ChromeDriver 失敗"; exit 1; }
-          sudo mv chromedriver-linux64/chromedriver /usr/local/bin/ || { echo "移動 ChromeDriver 失敗"; exit 1; }
-          # 設置執行權限
-          sudo chmod +x /usr/local/bin/chrome /usr/local/bin/chromedriver
-          # 清理臨時檔案
-          rm -rf chrome-linux64.zip chromedriver-linux64.zip chrome-linux64 chromedriver-linux64
-          # 驗證版本
-          google-chrome --version
-          chromedriver --version
-        shell: /usr/bin/bash -e {0}
+
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install selenium line-bot-sdk==3.11.0 requests
+
       - name: Run check_price.py
         env:
           LINE_ACCESS_TOKEN: ${{ secrets.LINE_ACCESS_TOKEN }}
           LINE_GROUP_ID: ${{ secrets.LINE_GROUP_ID }}
         run: |
+          google-chrome --version
+          chromedriver --version
           python check_price.py | tee run.log
+
       - name: Upload debug artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -56,10 +42,20 @@ jobs:
             page_debug.html
             run.log
           retention-days: 5
+
       - name: Notify on failure
         if: failure()
         env:
           LINE_ACCESS_TOKEN: ${{ secrets.LINE_ACCESS_TOKEN }}
           LINE_GROUP_ID: ${{ secrets.LINE_GROUP_ID }}
         run: |
-          python -c "from linebot.v3.messaging import MessagingApi, Configuration, ApiClient; from linebot.v3.messaging.models import TextMessage, PushMessageRequest; configuration = Configuration(access_token='$LINE_ACCESS_TOKEN'); line_bot_api = MessagingApi(ApiClient(configuration)); req = PushMessageRequest(to='$LINE_GROUP_ID', messages=[TextMessage(text='⚠️ GitHub Actions 執行失敗: 查看 debug-files 或日誌 ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}')]); line_bot_api.push_message(req)"
+          python -c "
+import os
+from linebot.v3.messaging import MessagingApi, Configuration, ApiClient
+from linebot.v3.messaging.models import TextMessage, PushMessageRequest
+
+conf = Configuration(access_token=os.environ['LINE_ACCESS_TOKEN'])
+client = MessagingApi(ApiClient(conf))
+msg = TextMessage(text='⚠️ GitHub Actions 執行失敗: 查看 debug-files 或日誌 ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}')
+client.push_message(PushMessageRequest(to=os.environ['LINE_GROUP_ID'], messages=[msg]))
+"
