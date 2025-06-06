@@ -2,6 +2,8 @@ import os
 import time
 import random
 import traceback
+import tempfile
+import subprocess
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -54,6 +56,8 @@ def save_debug_files(driver, error):
             f.write(f"錯誤訊息：{str(error)}\n")
             f.write(f"當前 URL：{driver.current_url if driver else 'N/A'}\n")
             f.write(f"當前時間：{time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"Chrome 版本：{subprocess.getoutput('google-chrome --version')}\n")
+            f.write(f"ChromeDriver 版本：{subprocess.getoutput('chromedriver --version')}\n")
             f.write(f"堆棧追蹤：\n{''.join(traceback.format_tb(error.__traceback__))}\n\n")
         print("📝 已儲存除錯資料")
     except Exception as e:
@@ -126,16 +130,29 @@ def select_date(driver, wait, date_input, target_date):
         print(f"⚠️ 選擇日期 {target_date} 失敗：{e}")
         raise
 
+def cleanup_chromedriver():
+    try:
+        # 終止現有的 ChromeDriver 進程
+        subprocess.run(['pkill', '-f', 'chromedriver'], check=False)
+        print("✅ 已清理殞地 ChromeDriver 進程")
+    except Exception as e:
+        print(f"⚠️ 清理 ChromeDriver 進程失敗：{e}")
+
 def check_price():
     print("🔍 開始查詢 Trip.com...")
+    cleanup_chromedriver()  # 清理殞地進程
+
     options = Options()
     # options.add_argument('--headless')  # 移除以便除錯，可根據需要啟用
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument('--window-size=1920,1080')
+    # 使用臨時用戶數據目錄
+    temp_user_data_dir = tempfile.mkdtemp()
+    options.add_argument(f'--user-data-dir={temp_user_data_dir}')
     user_agents = [
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36'
     ]
     options.add_argument(f'user-agent={random.choice(user_agents)}')
 
@@ -143,7 +160,7 @@ def check_price():
     try:
         driver = webdriver.Chrome(options=options)
         driver.get(BASE_URL)
-        wait = WebDriverWait(driver, 30)
+        wait = WebDriverWait(driver, 20)  # 縮短超時時間
         handle_popups(driver)
 
         try_form_action("選擇來回票", lambda: driver.execute_script("arguments[0].click();", wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-testid="flightType_RT"]')))))
@@ -213,6 +230,11 @@ def check_price():
         if driver:
             driver.quit()
             print("🧹 WebDriver 已關閉")
+            # 清理臨時用戶數據目錄
+            try:
+                subprocess.run(['rm', '-rf', temp_user_data_dir], check=False)
+            except Exception:
+                pass
 
 if __name__ == "__main__":
     check_price()
