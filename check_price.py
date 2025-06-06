@@ -1,6 +1,7 @@
 import os
 import time
 import random
+import traceback
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -34,7 +35,7 @@ def send_line_notification(message):
         line_bot_api.push_message(req)
         print("✅ 成功發送 LINE 通知")
     except Exception as e:
-        print("❌ 發送通知失敗：", e)
+        print(f"❌ 發送通知失敗：{e}")
 
 def extract_time_from_testid(testid):
     try:
@@ -52,8 +53,8 @@ def save_debug_files(driver, error):
             f.write(f"錯誤類型：{type(error).__name__}\n")
             f.write(f"錯誤訊息：{str(error)}\n")
             f.write(f"當前 URL：{driver.current_url if driver else 'N/A'}\n")
-            f.write(f"當前 HTML 片段：{driver.page_source[:1000] if driver else 'N/A'}\n")
-            f.write(f"堆棧追蹤：\n{str(error.__traceback__)}\n\n")
+            f.write(f"當前時間：{time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"堆棧追蹤：\n{''.join(traceback.format_tb(error.__traceback__))}\n\n")
         print("📝 已儲存除錯資料")
     except Exception as e:
         print(f"⚠️ 儲存除錯資料失敗: {e}")
@@ -63,29 +64,30 @@ def try_form_action(description, action, max_attempts=3):
         try:
             print(f"📝 {description} (嘗試 {attempt+1}/{max_attempts})...")
             action()
-            time.sleep(random.uniform(0.5, 1.5))
+            time.sleep(random.uniform(1, 2))
             return True
         except Exception as e:
             print(f"🚫 {description} 失敗：{str(e)}")
             if attempt == max_attempts - 1:
-                raise
+                raise Exception(f"{description} 最終失敗：{str(e)}")
             time.sleep(2)
     return False
 
 def ensure_dropdown_closed(driver):
     try:
-        dropdown = driver.find_elements(By.CSS_SELECTOR, 'div[data-testid="search_result_box"]')
-        if dropdown:
+        for _ in range(3):
+            dropdown = driver.find_elements(By.CSS_SELECTOR, 'div[data-testid="search_result_box"]')
+            if not dropdown:
+                print("✅ 無下拉選單遮擋")
+                return
             print("⚠️ 檢測到下拉選單，嘗試關閉...")
             driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
             time.sleep(1)
-            if driver.find_elements(By.CSS_SELECTOR, 'div[data-testid="search_result_box"]'):
-                driver.execute_script("document.body.click();")
-                time.sleep(1)
-        else:
-            print("✅ 無下拉選單遮擋")
+            driver.execute_script("document.body.click();")
+            time.sleep(1)
+        print("⚠️ 無法關閉下拉選單")
     except Exception as e:
-        print(f"⚠️ 檢查下拉選單時出錯：{e}")
+        print(f"⚠️ 關閉下拉選單時出錯：{e}")
 
 def handle_popups(driver):
     try:
@@ -99,34 +101,35 @@ def handle_popups(driver):
         driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
 
 def select_date(driver, wait, date_input, target_date):
-    driver.execute_script("arguments[0].click();", date_input)
-    calendar = wait.until(EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'c-fuzzy-calendar')]")))
-    month_header = calendar.find_element(By.XPATH, ".//div[contains(@class, 'c-fuzzy-calendar-month-header')]/span")
-    current_month_text = month_header.text
+    try:
+        driver.execute_script("arguments[0].click();", date_input)
+        calendar = wait.until(EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'c-fuzzy-calendar')]")))
+        target_year, target_month, day = map(int, target_date.split('-'))
+        months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
+        target_year_month = f"{target_year} 年 {months[target_month - 1]}"
 
-    target_year, target_month = map(int, target_date.split('-')[:2])
-    months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
-    target_month_chinese = months[target_month - 1]
-    target_year_month_chinese = f"{target_year} 年 {target_month_chinese}"
+        for _ in range(12):  # 最多嘗試切換 12 個月
+            month_header = calendar.find_element(By.XPATH, ".//div[contains(@class, 'c-fuzzy-calendar-month-header')]/span")
+            current_month_text = month_header.text
+            if current_month_text == target_year_month:
+                break
+            next_button = calendar.find_element(By.XPATH, ".//div[contains(@class, 'c-fuzzy-calendar-icon-next')]")
+            if 'disabled' in next_button.get_attribute('class'):
+                raise Exception(f"無法切換到 {target_year_month}")
+            driver.execute_script("arguments[0].click();", next_button)
+            wait.until(EC.staleness_of(month_header))
 
-    while current_month_text != target_year_month_chinese:
-        next_button = calendar.find_element(By.XPATH, ".//div[contains(@class, 'c-fuzzy-calendar-icon-next')]")
-        if 'disabled' in next_button.get_attribute('class'):
-            raise Exception(f"無法切換到 {target_year_month_chinese}")
-        driver.execute_script("arguments[0].click();", next_button)
-        wait.until(EC.staleness_of(month_header))
-        month_header = calendar.find_element(By.XPATH, ".//div[contains(@class, 'c-fuzzy-calendar-month-header')]/span")
-        current_month_text = month_header.text
-
-    day = target_date.split('-')[2].lstrip("0")
-    date_element = calendar.find_element(By.XPATH, f".//span[text()='{day}']")
-    wait.until(EC.element_to_be_clickable(date_element))
-    driver.execute_script("arguments[0].click();", date_element)
+        day = str(day).lstrip("0")
+        date_element = wait.until(EC.element_to_be_clickable((By.XPATH, f".//span[text()='{day}' and not(contains(@class, 'disabled'))]")))
+        driver.execute_script("arguments[0].click();", date_element)
+    except Exception as e:
+        print(f"⚠️ 選擇日期 {target_date} 失敗：{e}")
+        raise
 
 def check_price():
     print("🔍 開始查詢 Trip.com...")
     options = Options()
-    options.add_argument('--headless')
+    # options.add_argument('--headless')  # 移除以便除錯，可根據需要啟用
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument('--window-size=1920,1080')
@@ -140,7 +143,7 @@ def check_price():
     try:
         driver = webdriver.Chrome(options=options)
         driver.get(BASE_URL)
-        wait = WebDriverWait(driver, 120)
+        wait = WebDriverWait(driver, 30)
         handle_popups(driver)
 
         try_form_action("選擇來回票", lambda: driver.execute_script("arguments[0].click();", wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'div[data-testid="flightType_RT"]')))))
@@ -198,13 +201,13 @@ def check_price():
                         print(f"⚠️ 價格太高：{price} > {PRICE_THRESHOLD}")
                     break
             except Exception as e:
-                print("⚠️ 解析航班時出錯：", e)
+                print(f"⚠️ 解析航班時出錯：{e}")
 
         if not found:
             print("❗ 沒有找到符合條件的航班")
 
     except (TimeoutException, NoSuchElementException, WebDriverException) as e:
-        print("🚫 Selenium 錯誤：", e)
+        print(f"🚫 Selenium 錯誤：{e}")
         save_debug_files(driver, e)
     finally:
         if driver:
