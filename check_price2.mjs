@@ -1,5 +1,6 @@
 import puppeteer from 'puppeteer';
 import fetch from 'node-fetch';
+import fs from 'fs/promises';
 
 const LINE_ACCESS_TOKEN = process.env.LINE_ACCESS_TOKEN;
 const TARGET_DEPART = '13:45';
@@ -115,9 +116,25 @@ async function checkPrice() {
     await page.click('div[data-testid="search_btn"]');
     console.log('✅ 搜尋按鈕已點擊');
 
-    // 等待搜尋結果出現，而不是頁面導航
+    // 等待搜尋結果出現
     console.log('⌛ 等待搜尋結果...');
-    await page.waitForSelector('[data-price]', { timeout: 90000 });
+    try {
+      await page.waitForSelector('[data-price]', { timeout: 120000 });
+      console.log('✅ 搜尋結果已加載');
+    } catch (e) {
+      console.log('⚠️ 搜尋結果未加載，檢查是否有「無結果」或錯誤訊息...');
+      // 檢查是否有「無結果」或錯誤訊息
+      const noResults = await page.$('.no-result, .error-message, [data-testid="no-results"]');
+      if (noResults) {
+        const message = await page.evaluate(el => el.textContent, noResults);
+        console.log(`❌ 頁面顯示：${message}`);
+        await fs.writeFile('error_page.html', await page.content());
+        console.log('📄 頁面 HTML 已保存至 error_page.html');
+        return;
+      }
+      throw e; // 如果沒有無結果訊息，拋出原始錯誤
+    }
+
     await waitForTimeout(5000); // 額外等待確保結果穩定
 
     const cards = await page.$$('.result-item');
@@ -170,12 +187,14 @@ async function checkPrice() {
     }
   } catch (e) {
     console.log('🚫 整體錯誤：', e);
-    // 僅在 page 存在時保存截圖
+    // 僅在 page 存在時保存截圖和 HTML
     if (page) {
       await page.screenshot({ path: 'error_screenshot.png' });
       console.log('📸 錯誤截圖已保存');
+      await fs.writeFile('error_page.html', await page.content());
+      console.log('📄 頁面 HTML 已保存至 error_page.html');
     } else {
-      console.log('⚠️ page 未定義，無法保存截圖');
+      console.log('⚠️ page 未定義，無法保存截圖和 HTML');
     }
   } finally {
     await browser.close();
