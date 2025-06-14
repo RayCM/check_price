@@ -113,12 +113,12 @@ async function checkPrice() {
     await page.waitForSelector('div[data-testid="search_btn"]', { timeout: 30000 });
     console.log('🔍 提交搜尋條件...');
     await page.click('div[data-testid="search_btn"]');
-    await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 90000 });
-    console.log('✅ 搜尋提交完成');
+    console.log('✅ 搜尋按鈕已點擊');
 
+    // 等待搜尋結果出現，而不是頁面導航
     console.log('⌛ 等待搜尋結果...');
     await page.waitForSelector('[data-price]', { timeout: 90000 });
-    await waitForTimeout(5000);
+    await waitForTimeout(5000); // 額外等待確保結果穩定
 
     const cards = await page.$$('.result-item');
     console.log(`✈️ 找到 ${cards.length} 筆航班`);
