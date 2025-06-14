@@ -65,33 +65,52 @@ async function checkPrice() {
       timeout: 60000,
     });
 
-    await page.click('input[data-testid="departure-airport-input"]');
+    // 等待出發機場輸入框出現
+    await page.waitForSelector('input[data-testid="search_city_from0"]', { timeout: 30000 });
+    console.log('✅ 出發機場輸入框已加載');
+    await page.click('input[data-testid="search_city_from0"]');
     await page.keyboard.type('Taipei');
     await page.waitForTimeout(1000);
     await page.keyboard.press('Enter');
+    console.log('✅ 出發機場輸入完成');
 
-    await page.click('input[data-testid="arrival-airport-input"]');
+    // 等待抵達機場輸入框出現
+    await page.waitForSelector('input[data-testid="search_city_to0"]', { timeout: 30000 });
+    console.log('✅ 抵達機場輸入框已加載');
+    await page.click('input[data-testid="search_city_to0"]');
     await page.keyboard.type('Oslo');
     await page.waitForTimeout(1000);
     await page.keyboard.press('Enter');
+    console.log('✅ 抵達機場輸入完成');
 
-    await page.click('input[data-testid="departure-date-input"]');
+    // 等待出發日期輸入框出現
+    await page.waitForSelector('input[data-testid="search_date_depart0"]', { timeout: 30000 });
+    console.log('✅ 出發日期輸入框已加載');
+    await page.click('input[data-testid="search_date_depart0"]');
     await page.waitForTimeout(500);
     await page.evaluate(() => {
       const target = document.querySelector('[aria-label="2025年9月27日"]');
       if (target) target.click();
     });
+    console.log('✅ 出發日期選擇完成');
 
-    await page.click('input[data-testid="return-date-input"]');
+    // 等待回程日期輸入框出現
+    await page.waitForSelector('input[data-testid="search_date_return0"]', { timeout: 30000 });
+    console.log('✅ 回程日期輸入框已加載');
+    await page.click('input[data-testid="search_date_return0"]');
     await page.waitForTimeout(500);
     await page.evaluate(() => {
       const target = document.querySelector('[aria-label="2025年10月11日"]');
       if (target) target.click();
     });
+    console.log('✅ 回程日期選擇完成');
 
+    // 等待搜尋按鈕出現
+    await page.waitForSelector('div[data-testid="search_btn"]', { timeout: 30000 });
     console.log('🔍 提交搜尋條件...');
-    await page.click('button[data-testid="search-button"]');
+    await page.click('div[data-testid="search_btn"]');
     await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 90000 });
+    console.log('✅ 搜尋提交完成');
 
     console.log('⌛ 等待搜尋結果...');
     await page.waitForSelector('[data-price]', { timeout: 90000 });
@@ -147,6 +166,8 @@ async function checkPrice() {
     }
   } catch (e) {
     console.log('🚫 整體錯誤：', e);
+    // 保存錯誤時的截圖以便調試
+    await page.screenshot({ path: 'error_screenshot.png' });
   } finally {
     await browser.close();
     console.log('🧹 Browser 已關閉');
