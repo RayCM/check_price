@@ -1,5 +1,6 @@
 import os
 import time
+import re
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -82,9 +83,14 @@ def check_price():
                 depart_time = extract_time_from_testid(depart)
                 arrive_time = extract_time_from_testid(arrive)
 
-                # 改為抓取顯示票價文字
-                price_text = card.find_element(By.CSS_SELECTOR, '.price-text').text
-                price = parse_price_text(price_text)
+                # 改用從 aria-label 裡擷取價格
+                price_aria = card.find_element(By.CSS_SELECTOR, '.flight-info.is-v2').get_attribute('aria-label')
+                match = re.search(r'來回價格：NT\$[\d,]+', price_aria)
+                if match:
+                    price_text = match.group().replace('來回價格：', '')
+                    price = parse_price_text(price_text)
+                else:
+                    price = None
 
                 print(f"📋 出發：{depart_time}，抵達：{arrive_time}，票價：{price}")
 
