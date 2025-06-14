@@ -112,9 +112,9 @@ async function checkPrice() {
     console.log('✅ 回程日期選擇完成');
 
     // 等待搜尋按鈕出現
-    await page.waitForSelector('div[data-testid="search_btn"]', { timeout: 30000 });
+    await page.waitForSelector('div.nh_sp-btn2[data-testid="search_btn"]', { timeout: 30000 });
     console.log('🔍 提交搜尋條件...');
-    await page.click('div[data-testid="search_btn"]');
+    await page.click('div.nh_sp-btn2[data-testid="search_btn"]');
     console.log('✅ 搜尋按鈕已點擊');
 
     // 等待搜尋結果出現
@@ -200,8 +200,10 @@ async function checkPrice() {
       console.log('⚠️ page 未定義，無法保存截圖和 HTML');
     }
   } finally {
-    await browser.close();
-    console.log('🧹 Browser 已關閉');
+    if (browser) {
+      await browser.close();
+      console.log('🧹 Browser 已關閉');
+    }
   }
 }
 
