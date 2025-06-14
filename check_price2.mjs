@@ -1,22 +1,17 @@
 import puppeteer from 'puppeteer';
-import dotenv from 'dotenv';
+import fetch from 'node-fetch';
 
-dotenv.config();
-
-// ===== 環境變數設定 =====
 const LINE_ACCESS_TOKEN = process.env.LINE_ACCESS_TOKEN;
 const TARGET_DEPART = '13:45';
 const TARGET_ARRIVE = '13:05';
 const PRICE_THRESHOLD = 41000;
 
-// ===== 解析 time 從 data-testid =====
 function extractTimeFromTestid(testid) {
   if (!testid) return '';
   const parts = testid.trim().split(' ');
   return parts.length ? parts[parts.length - 1].slice(0, 5) : '';
 }
 
-// ===== 解析價格字串 "NT$41,107" 轉數字 =====
 function parsePriceText(text) {
   try {
     return parseInt(text.replace('NT$', '').replace(/,/g, '').trim(), 10);
@@ -25,7 +20,6 @@ function parsePriceText(text) {
   }
 }
 
-// ===== 發送 LINE Notify 訊息 =====
 async function sendLineNotification(message) {
   if (!LINE_ACCESS_TOKEN) {
     console.log('⚠️ LINE_ACCESS_TOKEN 未設定，無法發送通知');
@@ -35,7 +29,7 @@ async function sendLineNotification(message) {
     const res = await fetch('https://notify-api.line.me/api/notify', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LINE_ACCESS_TOKEN}`,
+        Authorization: `Bearer ${LINE_ACCESS_TOKEN}`,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({ message }),
@@ -50,7 +44,6 @@ async function sendLineNotification(message) {
   }
 }
 
-// ===== 主程式 =====
 async function checkPrice() {
   console.log('🔍 開始查詢 Trip.com...');
 
@@ -72,19 +65,16 @@ async function checkPrice() {
       timeout: 60000,
     });
 
-    // 輸入出發地（Taipei）
     await page.click('input[data-testid="departure-airport-input"]');
     await page.keyboard.type('Taipei');
     await page.waitForTimeout(1000);
     await page.keyboard.press('Enter');
 
-    // 輸入目的地（Oslo）
     await page.click('input[data-testid="arrival-airport-input"]');
     await page.keyboard.type('Oslo');
     await page.waitForTimeout(1000);
     await page.keyboard.press('Enter');
 
-    // 選擇出發日期
     await page.click('input[data-testid="departure-date-input"]');
     await page.waitForTimeout(500);
     await page.evaluate(() => {
@@ -92,7 +82,6 @@ async function checkPrice() {
       if (target) target.click();
     });
 
-    // 選擇返回日期
     await page.click('input[data-testid="return-date-input"]');
     await page.waitForTimeout(500);
     await page.evaluate(() => {
@@ -100,14 +89,13 @@ async function checkPrice() {
       if (target) target.click();
     });
 
-    // 點擊搜尋
     console.log('🔍 提交搜尋條件...');
     await page.click('button[data-testid="search-button"]');
     await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 90000 });
 
     console.log('⌛ 等待搜尋結果...');
     await page.waitForSelector('[data-price]', { timeout: 90000 });
-    await page.waitForTimeout(5000); // 等待 JavaScript 完整渲染
+    await page.waitForTimeout(5000);
 
     const cards = await page.$$('.result-item');
     console.log(`✈️ 找到 ${cards.length} 筆航班`);

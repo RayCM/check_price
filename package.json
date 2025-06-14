@@ -1,25 +1,14 @@
 {
   "name": "trip-price-checker",
   "version": "1.0.0",
-  "description": "# check_price",
+  "description": "Check flight price and notify via LINE",
   "type": "module",
   "main": "check_price2.mjs",
   "scripts": {
-    "start": "node check_price2.mjs",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node check_price2.mjs"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/RayCM/check_price.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/RayCM/check_price/issues"
-  },
-  "homepage": "https://github.com/RayCM/check_price#readme",
   "dependencies": {
-    "puppeteer": "^24.10.1"
+    "puppeteer": "^24.10.1",
+    "node-fetch": "^3.3.1"
   }
 }
