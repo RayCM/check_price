@@ -70,7 +70,7 @@ async function checkPrice() {
     await page.waitForSelector('[data-price]', { timeout: 90000 });
 
     console.log('⏳ 等待 JavaScript 完整渲染...');
-    await page.waitForTimeout(5000);
+    await new Promise(resolve => setTimeout(resolve, 5000));
 
     // 取得所有航班卡片
     const cards = await page.$$('.result-item');
