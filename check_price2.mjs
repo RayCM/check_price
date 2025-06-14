@@ -6,6 +6,9 @@ const TARGET_DEPART = '13:45';
 const TARGET_ARRIVE = '13:05';
 const PRICE_THRESHOLD = 41000;
 
+// 模擬 waitForTimeout 的函數
+const waitForTimeout = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 function extractTimeFromTestid(testid) {
   if (!testid) return '';
   const parts = testid.trim().split(' ');
@@ -52,8 +55,9 @@ async function checkPrice() {
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
 
+  let page;
   try {
-    const page = await browser.newPage();
+    page = await browser.newPage();
 
     await page.setUserAgent(
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -70,7 +74,7 @@ async function checkPrice() {
     console.log('✅ 出發機場輸入框已加載');
     await page.click('input[data-testid="search_city_from0"]');
     await page.keyboard.type('Taipei');
-    await page.waitForTimeout(1000);
+    await waitForTimeout(1000);
     await page.keyboard.press('Enter');
     console.log('✅ 出發機場輸入完成');
 
@@ -79,7 +83,7 @@ async function checkPrice() {
     console.log('✅ 抵達機場輸入框已加載');
     await page.click('input[data-testid="search_city_to0"]');
     await page.keyboard.type('Oslo');
-    await page.waitForTimeout(1000);
+    await waitForTimeout(1000);
     await page.keyboard.press('Enter');
     console.log('✅ 抵達機場輸入完成');
 
@@ -87,7 +91,7 @@ async function checkPrice() {
     await page.waitForSelector('input[data-testid="search_date_depart0"]', { timeout: 30000 });
     console.log('✅ 出發日期輸入框已加載');
     await page.click('input[data-testid="search_date_depart0"]');
-    await page.waitForTimeout(500);
+    await waitForTimeout(500);
     await page.evaluate(() => {
       const target = document.querySelector('[aria-label="2025年9月27日"]');
       if (target) target.click();
@@ -98,7 +102,7 @@ async function checkPrice() {
     await page.waitForSelector('input[data-testid="search_date_return0"]', { timeout: 30000 });
     console.log('✅ 回程日期輸入框已加載');
     await page.click('input[data-testid="search_date_return0"]');
-    await page.waitForTimeout(500);
+    await waitForTimeout(500);
     await page.evaluate(() => {
       const target = document.querySelector('[aria-label="2025年10月11日"]');
       if (target) target.click();
@@ -114,7 +118,7 @@ async function checkPrice() {
 
     console.log('⌛ 等待搜尋結果...');
     await page.waitForSelector('[data-price]', { timeout: 90000 });
-    await page.waitForTimeout(5000);
+    await waitForTimeout(5000);
 
     const cards = await page.$$('.result-item');
     console.log(`✈️ 找到 ${cards.length} 筆航班`);
@@ -166,8 +170,13 @@ async function checkPrice() {
     }
   } catch (e) {
     console.log('🚫 整體錯誤：', e);
-    // 保存錯誤時的截圖以便調試
-    await page.screenshot({ path: 'error_screenshot.png' });
+    // 僅在 page 存在時保存截圖
+    if (page) {
+      await page.screenshot({ path: 'error_screenshot.png' });
+      console.log('📸 錯誤截圖已保存');
+    } else {
+      console.log('⚠️ page 未定義，無法保存截圖');
+    }
   } finally {
     await browser.close();
     console.log('🧹 Browser 已關閉');
