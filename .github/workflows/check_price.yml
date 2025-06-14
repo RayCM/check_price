@@ -1,42 +1,27 @@
-name: Check Flight Price
+name: Check Flight Price with Puppeteer
 
 on:
   schedule:
-    - cron: '*/15 * * * *'  # 每 30 分鐘執行一次
-  workflow_dispatch:        # 允許手動執行
+    - cron: '*/15 * * * *'  # 每 15 分鐘執行一次
+  workflow_dispatch:
 
 jobs:
   run-check:
-    runs-on: ubuntu-22.04  # 使用穩定 runner
+    runs-on: ubuntu-22.04
 
     steps:
     - name: Checkout repo
       uses: actions/checkout@v3
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
       with:
-        python-version: '3.10'
+        node-version: '18'  # Puppeteer 支援 Node 18+
 
     - name: Install dependencies
-      run: pip install -r requirements.txt
+      run: npm install
 
-    - name: Install Chrome
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y wget unzip xvfb
-        wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-        sudo apt install -y ./google-chrome-stable_current_amd64.deb
-
-    - name: Install ChromeDriver v137
-      run: |
-        wget -q https://storage.googleapis.com/chrome-for-testing-public/137.0.7151.55/linux64/chromedriver-linux64.zip
-        unzip chromedriver-linux64.zip
-        sudo mv chromedriver-linux64/chromedriver /usr/local/bin/
-        sudo chmod +x /usr/local/bin/chromedriver
-
-    - name: Run check_price.py
+    - name: Run Puppeteer script
       env:
         LINE_ACCESS_TOKEN: ${{ secrets.LINE_ACCESS_TOKEN }}
-        LINE_GROUP_ID: ${{ secrets.LINE_GROUP_ID }}
-      run: python check_price.py
+      run: node check_price2.js
