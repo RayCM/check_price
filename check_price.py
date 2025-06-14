@@ -17,10 +17,10 @@ configuration = Configuration(access_token=CHANNEL_ACCESS_TOKEN)
 line_bot_api = MessagingApi(ApiClient(configuration))
 
 # ===== 查詢條件 =====
-TARGET_DEPART = '18:50'
-TARGET_ARRIVE = '07:25'
+TARGET_DEPART = '13:45'
+TARGET_ARRIVE = '13:05'
 PRICE_THRESHOLD = 41000
-TRIP_URL = 'https://tw.trip.com/flights/showfarefirst?dcity=tpe&acity=osl&ddate=2025-09-27&rdate=2025-10-11&dairport=tpe&aairport=osl&triptype=rt&class=y&lowpricesource=searchform&quantity=1&searchboxarg=t&nonstoponly=off&locale=zh-TW&curr=TWD'
+TRIP_URL = 'https://tw.trip.com/flights/ShowFareNext?lowpricesource=searchform&triptype=RT&class=Y&quantity=1&childqty=0&babyqty=0&jumptype=GoToNextJournay&dcity=tpe&acity=osl&dairport=tpe&aairport=osl&ddate=2025-09-27&dcityName=Taipei&acityName=Oslo&rdate=2025-10-11&currentseqno=2&criteriaToken=SGP_SGP-ALI_PIDReduce-abc523f1-244d-4275-ae09-2fd3deb41511%5EList-a3bc3d8b-89b8-4386-b257-2eebb0a511a4&shoppingid=SGP_SGP-ALI_PIDReduce-fe7d4a8a-29c0-4ce2-b6b7-6af8c32bcf5b%5EList-e71ea733-b4d7-4752-b48f-a302b01f9bac&groupKey=SGP_SGP-ALI_PIDReduce-fe7d4a8a-29c0-4ce2-b6b7-6af8c32bcf5b%5EList-e71ea733-b4d7-4752-b48f-a302b01f9bac&locale=zh-TW&curr=TWD'
 
 def send_line_notification(message):
     try:
