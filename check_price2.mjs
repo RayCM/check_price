@@ -95,7 +95,7 @@ async function checkPrice() {
     await page.click('input[data-testid="search_date_depart0"]');
     await waitForTimeout(500);
     await page.evaluate(() => {
-      const target = document.querySelector('[aria-label="2025年9月27日"]');
+      const target = document.querySelector('[data-date="2025-09-27"]'); // 使用 data-date 替代 aria-label
       if (target) target.click();
     });
     console.log('✅ 出發日期選擇完成');
@@ -106,7 +106,7 @@ async function checkPrice() {
     await page.click('input[data-testid="search_date_return0"]');
     await waitForTimeout(500);
     await page.evaluate(() => {
-      const target = document.querySelector('[aria-label="2025年10月11日"]');
+      const target = document.querySelector('[data-date="2025-10-11"]'); // 使用 data-date 替代 aria-label
       if (target) target.click();
     });
     console.log('✅ 回程日期選擇完成');
@@ -124,7 +124,6 @@ async function checkPrice() {
       console.log('✅ 搜尋結果已加載');
     } catch (e) {
       console.log('⚠️ 搜尋結果未加載，檢查是否有「無結果」或錯誤訊息...');
-      // 檢查是否有「無結果」或錯誤訊息
       const noResults = await page.$('.no-result, .error-message, [data-testid="no-results"]');
       if (noResults) {
         const message = await page.evaluate(el => el.textContent, noResults);
@@ -133,7 +132,7 @@ async function checkPrice() {
         console.log('📄 頁面 HTML 已保存至 artifacts/error_page.html');
         return;
       }
-      throw e; // 如果沒有無結果訊息，拋出原始錯誤
+      throw e;
     }
 
     await waitForTimeout(5000); // 額外等待確保結果穩定
@@ -188,9 +187,7 @@ async function checkPrice() {
     }
   } catch (e) {
     console.log('🚫 整體錯誤：', e);
-    // 僅在 page 存在時保存截圖和 HTML
     if (page) {
-      // 確保 artifacts 目錄存在
       await fs.mkdir(path.join(process.cwd(), 'artifacts'), { recursive: true });
       await page.screenshot({ path: path.join(process.cwd(), 'artifacts', 'error_screenshot.png') });
       console.log('📸 錯誤截圖已保存至 artifacts/error_screenshot.png');
