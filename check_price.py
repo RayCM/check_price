@@ -19,7 +19,7 @@ line_bot_api = MessagingApi(ApiClient(configuration))
 # ===== 查詢條件 =====
 TARGET_DEPART = '18:50'
 TARGET_ARRIVE = '07:25'
-PRICE_THRESHOLD = 42000
+PRICE_THRESHOLD = 41000
 TRIP_URL = 'https://tw.trip.com/flights/showfarefirst?dcity=tpe&acity=osl&ddate=2025-09-27&rdate=2025-10-11&dairport=tpe&aairport=osl&triptype=rt&class=y&lowpricesource=searchform&quantity=1&searchboxarg=t&nonstoponly=off&locale=zh-TW&curr=TWD'
 
 def send_line_notification(message):
