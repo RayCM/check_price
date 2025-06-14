@@ -1,5 +1,5 @@
 import puppeteer from 'puppeteer';
-import fetch from 'node-fetch';
+import axios from 'axios';
 
 // ===== 環境變數設定 =====
 const LINE_ACCESS_TOKEN = process.env.LINE_ACCESS_TOKEN;
