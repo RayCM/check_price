@@ -96,9 +96,12 @@ async function checkPrice() {
     await waitForTimeout(500);
     await page.evaluate(() => {
       const target = document.querySelector('[data-date="2025-09-27"]');
-      if (target) target.click();
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' }); // 確保元素可見
+        target.click();
+      }
     });
-    await waitForTimeout(1000); // 延長等待以確保日期應用
+    await waitForTimeout(1500); // 延長等待以確保日期應用
     console.log('✅ 出發日期選擇完成');
 
     // 等待回程日期輸入框出現
@@ -108,14 +111,17 @@ async function checkPrice() {
     await waitForTimeout(500);
     await page.evaluate(() => {
       const target = document.querySelector('[data-date="2025-10-11"]');
-      if (target) target.click();
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' }); // 確保元素可見
+        target.click();
+      }
     });
-    await waitForTimeout(1000); // 延長等待以確保日期應用
+    await waitForTimeout(1500); // 延長等待以確保日期應用
     console.log('✅ 回程日期選擇完成');
 
-    // 關閉日期選擇器（假設點擊空白處或特定元素）
-    await page.click('body'); // 嘗試關閉日期選擇器
-    await waitForTimeout(500);
+    // 嘗試關閉日期選擇器
+    await page.click('body'); // 點擊頁面空白處關閉
+    await waitForTimeout(1000);
 
     // 等待搜尋按鈕出現
     await page.waitForSelector('div.nh_sp-btn2[data-testid="search_btn"]', { timeout: 30000 });
@@ -126,7 +132,7 @@ async function checkPrice() {
     // 等待搜尋結果出現
     console.log('⌛ 等待搜尋結果...');
     try {
-      await page.waitForSelector('[data-price]', { timeout: 120000 });
+      await page.waitForSelector('[data-price]', { timeout: 10000 });
       console.log('✅ 搜尋結果已加載');
     } catch (e) {
       console.log('⚠️ 搜尋結果未加載，檢查是否有「無結果」或錯誤訊息...');
