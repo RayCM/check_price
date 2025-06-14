@@ -96,7 +96,7 @@ async function checkPrice() {
     await waitForTimeout(500);
     await page.evaluate(() => {
       const monthSelect = document.querySelector('.calendar-month-select'); // 假設的月份選擇器
-      if (monthSelect) monthSelect.value = '9'; // 切換到9月
+      if (monthSelect) monthSelect.value = '8'; // 切換到9月 (索引從0開始)
       const yearSelect = document.querySelector('.calendar-year-select'); // 假設的年份選擇器
       if (yearSelect) yearSelect.value = '2025';
       const target = document.querySelector('[data-date="2025-09-27"]');
@@ -106,6 +106,8 @@ async function checkPrice() {
       }
     });
     await waitForTimeout(1500); // 等待日期應用
+    await page.click('body'); // 關閉日期選擇器
+    await waitForTimeout(1000);
     console.log('✅ 出發日期選擇完成');
 
     // 處理回程日期
@@ -115,7 +117,7 @@ async function checkPrice() {
     await waitForTimeout(500);
     await page.evaluate(() => {
       const monthSelect = document.querySelector('.calendar-month-select'); // 假設的月份選擇器
-      if (monthSelect) monthSelect.value = '10'; // 切換到10月
+      if (monthSelect) monthSelect.value = '9'; // 切換到10月 (索引從0開始)
       const yearSelect = document.querySelector('.calendar-year-select'); // 假設的年份選擇器
       if (yearSelect) yearSelect.value = '2025';
       const target = document.querySelector('[data-date="2025-10-11"]');
@@ -125,13 +127,9 @@ async function checkPrice() {
       }
     });
     await waitForTimeout(1500); // 等待日期應用
+    await page.click('body'); // 關閉日期選擇器
+    await waitForTimeout(1000);
     console.log('✅ 回程日期選擇完成');
-
-    // 嘗試關閉日期選擇器並應用
-    await page.click('body'); // 點擊空白處關閉
-    await waitForTimeout(1000);
-    await page.click('button[data-testid="date-picker-apply"]'); // 假設的應用按鈕
-    await waitForTimeout(1000);
 
     // 等待搜尋按鈕出現
     await page.waitForSelector('div.nh_sp-btn2[data-testid="search_btn"]', { timeout: 30000 });
