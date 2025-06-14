@@ -24,4 +24,4 @@ jobs:
     - name: Run Puppeteer script
       env:
         LINE_ACCESS_TOKEN: ${{ secrets.LINE_ACCESS_TOKEN }}
-      run: node check_price2.js
+      run: node check_price2.mjs
