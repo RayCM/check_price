@@ -1,4 +1,5 @@
 import os
+import time
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -37,6 +38,13 @@ def extract_time_from_testid(testid):
     except:
         return ''
 
+def parse_price_text(text):
+    try:
+        # 移除 "NT$" 與 ","，轉換為整數
+        return int(text.replace("NT$", "").replace(",", "").strip())
+    except:
+        return None
+
 def check_price():
     print("🔍 開始查詢 Trip.com...")
 
@@ -59,6 +67,9 @@ def check_price():
             EC.presence_of_element_located((By.CSS_SELECTOR, '[data-price]'))
         )
 
+        print("⏳ 等待 JavaScript 完整渲染...")
+        time.sleep(5)
+
         cards = driver.find_elements(By.CSS_SELECTOR, '.result-item')
         print(f"✈️ 找到 {len(cards)} 筆航班")
 
@@ -71,15 +82,16 @@ def check_price():
                 depart_time = extract_time_from_testid(depart)
                 arrive_time = extract_time_from_testid(arrive)
 
-                price_el = card.find_element(By.CSS_SELECTOR, '[data-price]')
-                price = int(price_el.get_attribute('data-price'))
+                # 改為抓取顯示票價文字
+                price_text = card.find_element(By.CSS_SELECTOR, '.price-text').text
+                price = parse_price_text(price_text)
 
                 print(f"📋 出發：{depart_time}，抵達：{arrive_time}，票價：{price}")
 
                 if depart_time == TARGET_DEPART and arrive_time == TARGET_ARRIVE:
                     print("✅ 找到符合時間的航班")
                     found = True
-                    if price <= PRICE_THRESHOLD:
+                    if price is not None and price <= PRICE_THRESHOLD:
                         print("💰 價格也符合條件，將發送通知")
                         msg = f'🚨 發現低價票！\n出發：{depart_time} OSL\n抵達：{arrive_time} TPE\n票價：{price} 元\n👉 {TRIP_URL}'
                         send_line_notification(msg)
@@ -89,6 +101,7 @@ def check_price():
 
             except Exception as e:
                 print("⚠️ 某筆航班解析失敗：", e)
+                print(card.get_attribute("outerHTML"))
 
         if not found:
             print("❗ 沒有找到符合條件的航班")
