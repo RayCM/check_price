@@ -95,9 +95,9 @@ async function checkPrice() {
     await page.click('input[data-testid="search_date_depart0"]');
     await waitForTimeout(500);
     await page.evaluate(() => {
-      const monthSelect = document.querySelector('.calendar-month-select'); // 假設的月份選擇器
+      const monthSelect = document.querySelector('select[data-testid="month-select"]'); // 更新月份選擇器
       if (monthSelect) monthSelect.value = '8'; // 切換到9月 (索引從0開始)
-      const yearSelect = document.querySelector('.calendar-year-select'); // 假設的年份選擇器
+      const yearSelect = document.querySelector('select[data-testid="year-select"]'); // 更新年份選擇器
       if (yearSelect) yearSelect.value = '2025';
       const target = document.querySelector('[data-date="2025-09-27"]');
       if (target) {
@@ -116,9 +116,9 @@ async function checkPrice() {
     await page.click('input[data-testid="search_date_return0"]');
     await waitForTimeout(500);
     await page.evaluate(() => {
-      const monthSelect = document.querySelector('.calendar-month-select'); // 假設的月份選擇器
+      const monthSelect = document.querySelector('select[data-testid="month-select"]'); // 更新月份選擇器
       if (monthSelect) monthSelect.value = '9'; // 切換到10月 (索引從0開始)
-      const yearSelect = document.querySelector('.calendar-year-select'); // 假設的年份選擇器
+      const yearSelect = document.querySelector('select[data-testid="year-select"]'); // 更新年份選擇器
       if (yearSelect) yearSelect.value = '2025';
       const target = document.querySelector('[data-date="2025-10-11"]');
       if (target) {
@@ -130,6 +130,11 @@ async function checkPrice() {
     await page.click('body'); // 關閉日期選擇器
     await waitForTimeout(1000);
     console.log('✅ 回程日期選擇完成');
+
+    // 驗證日期是否正確應用
+    const departDate = await page.$eval('input[data-testid="search_date_depart0"]', el => el.value);
+    const returnDate = await page.$eval('input[data-testid="search_date_return0"]', el => el.value);
+    console.log(`📅 出發日期：${departDate}, 回程日期：${returnDate}`);
 
     // 等待搜尋按鈕出現
     await page.waitForSelector('div.nh_sp-btn2[data-testid="search_btn"]', { timeout: 30000 });
