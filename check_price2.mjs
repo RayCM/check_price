@@ -94,11 +94,13 @@ async function checkPrice() {
     console.log('✅ 出發日期輸入框已加載');
     await page.click('input[data-testid="search_date_depart0"]');
     await waitForTimeout(500);
-    await page.evaluate(() => {
-      const nextMonth = document.querySelector('.calendar-next-month'); // 切換到下個月
-      if (nextMonth) nextMonth.click();
-    });
-    await waitForTimeout(1000);
+    for (let i = 0; i < 3; i++) { // 從6月切換到9月（3次）
+      await page.evaluate(() => {
+        const nextMonth = document.querySelector('.calendar-next-month, .next-month, .calendar-arrow-right');
+        if (nextMonth) nextMonth.click();
+      });
+      await waitForTimeout(500);
+    }
     await page.evaluate(() => {
       const target = document.querySelector('[data-date="2025-09-27"]');
       if (target) {
@@ -116,12 +118,13 @@ async function checkPrice() {
     console.log('✅ 回程日期輸入框已加載');
     await page.click('input[data-testid="search_date_return0"]');
     await waitForTimeout(500);
-    await page.evaluate(() => {
-      const nextMonth = document.querySelector('.calendar-next-month'); // 切換到下個月
-      if (nextMonth) nextMonth.click();
-      if (nextMonth) nextMonth.click(); // 連續切換到10月
-    });
-    await waitForTimeout(1000);
+    for (let i = 0; i < 4; i++) { // 從6月切換到10月（4次）
+      await page.evaluate(() => {
+        const nextMonth = document.querySelector('.calendar-next-month, .next-month, .calendar-arrow-right');
+        if (nextMonth) nextMonth.click();
+      });
+      await waitForTimeout(500);
+    }
     await page.evaluate(() => {
       const target = document.querySelector('[data-date="2025-10-11"]');
       if (target) {
