@@ -95,10 +95,11 @@ async function checkPrice() {
     await page.click('input[data-testid="search_date_depart0"]');
     await waitForTimeout(500);
     await page.evaluate(() => {
-      const monthSelect = document.querySelector('select[data-testid="month-select"]'); // 更新月份選擇器
-      if (monthSelect) monthSelect.value = '8'; // 切換到9月 (索引從0開始)
-      const yearSelect = document.querySelector('select[data-testid="year-select"]'); // 更新年份選擇器
-      if (yearSelect) yearSelect.value = '2025';
+      const nextMonth = document.querySelector('.calendar-next-month'); // 切換到下個月
+      if (nextMonth) nextMonth.click();
+    });
+    await waitForTimeout(1000);
+    await page.evaluate(() => {
       const target = document.querySelector('[data-date="2025-09-27"]');
       if (target) {
         target.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -116,10 +117,12 @@ async function checkPrice() {
     await page.click('input[data-testid="search_date_return0"]');
     await waitForTimeout(500);
     await page.evaluate(() => {
-      const monthSelect = document.querySelector('select[data-testid="month-select"]'); // 更新月份選擇器
-      if (monthSelect) monthSelect.value = '9'; // 切換到10月 (索引從0開始)
-      const yearSelect = document.querySelector('select[data-testid="year-select"]'); // 更新年份選擇器
-      if (yearSelect) yearSelect.value = '2025';
+      const nextMonth = document.querySelector('.calendar-next-month'); // 切換到下個月
+      if (nextMonth) nextMonth.click();
+      if (nextMonth) nextMonth.click(); // 連續切換到10月
+    });
+    await waitForTimeout(1000);
+    await page.evaluate(() => {
       const target = document.querySelector('[data-date="2025-10-11"]');
       if (target) {
         target.scrollIntoView({ behavior: 'smooth', block: 'center' });
