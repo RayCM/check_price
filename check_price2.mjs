@@ -1,12 +1,14 @@
 import puppeteer from 'puppeteer';
-import axios from 'axios';
+import fetch from 'node-fetch'; // 若你用 Node.js v18 以下需要安裝 node-fetch
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 // ===== 環境變數設定 =====
 const LINE_ACCESS_TOKEN = process.env.LINE_ACCESS_TOKEN;
 const TARGET_DEPART = '13:45';
 const TARGET_ARRIVE = '13:05';
 const PRICE_THRESHOLD = 41000;
-const TRIP_URL = 'https://tw.trip.com/flights/ShowFareNext?lowpricesource=searchform&triptype=RT&class=Y&quantity=1&childqty=0&babyqty=0&jumptype=GoToNextJournay&dcity=tpe&acity=osl&dairport=tpe&aairport=osl&ddate=2025-09-27&dcityName=Taipei&acityName=Oslo&rdate=2025-10-11&currentseqno=2&criteriaToken=SGP_SGP-ALI_PIDReduce-abc523f1-244d-4275-ae09-2fd3deb41511%5EList-a3bc3d8b-89b8-4386-b257-2eebb0a511a4&shoppingid=SGP_SGP-ALI_PIDReduce-fe7d4a8a-29c0-4ce2-b6b7-6af8c32bcf5b%5EList-e71ea733-b4d7-4752-b48f-a302b01f9bac&groupKey=SGP_SGP-ALI_PIDReduce-fe7d4a8a-29c0-4ce2-b6b7-6af8c32bcf5b%5EList-e71ea733-b4d7-4752-b48f-a302b01f9bac&locale=zh-TW&curr=TWD';
 
 // ===== 解析 time 從 data-testid =====
 function extractTimeFromTestid(testid) {
@@ -49,6 +51,7 @@ async function sendLineNotification(message) {
   }
 }
 
+// ===== 主程式 =====
 async function checkPrice() {
   console.log('🔍 開始查詢 Trip.com...');
 
@@ -60,19 +63,53 @@ async function checkPrice() {
   try {
     const page = await browser.newPage();
 
-    // 設定 user-agent，避免被識別成爬蟲
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    await page.setUserAgent(
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    );
 
-    console.log('🌐 前往 Trip.com 網頁中...');
-    await page.goto(TRIP_URL, { waitUntil: 'networkidle2', timeout: 90000 });
+    console.log('🌐 前往 Trip.com 首頁...');
+    await page.goto('https://tw.trip.com/flights', {
+      waitUntil: 'networkidle2',
+      timeout: 60000,
+    });
 
-    console.log('⌛ 等待票價資料出現...');
+    // 輸入出發地（Taipei）
+    await page.click('input[data-testid="departure-airport-input"]');
+    await page.keyboard.type('Taipei');
+    await page.waitForTimeout(1000);
+    await page.keyboard.press('Enter');
+
+    // 輸入目的地（Oslo）
+    await page.click('input[data-testid="arrival-airport-input"]');
+    await page.keyboard.type('Oslo');
+    await page.waitForTimeout(1000);
+    await page.keyboard.press('Enter');
+
+    // 選擇出發日期
+    await page.click('input[data-testid="departure-date-input"]');
+    await page.waitForTimeout(500);
+    await page.evaluate(() => {
+      const target = document.querySelector('[aria-label="2025年9月27日"]');
+      if (target) target.click();
+    });
+
+    // 選擇返回日期
+    await page.click('input[data-testid="return-date-input"]');
+    await page.waitForTimeout(500);
+    await page.evaluate(() => {
+      const target = document.querySelector('[aria-label="2025年10月11日"]');
+      if (target) target.click();
+    });
+
+    // 點擊搜尋
+    console.log('🔍 提交搜尋條件...');
+    await page.click('button[data-testid="search-button"]');
+    await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 90000 });
+
+    console.log('⌛ 等待搜尋結果...');
     await page.waitForSelector('[data-price]', { timeout: 90000 });
+    await page.waitForTimeout(5000); // 等待 JavaScript 完整渲染
 
-    console.log('⏳ 等待 JavaScript 完整渲染...');
-    await new Promise(resolve => setTimeout(resolve, 5000));
-
-    // 取得所有航班卡片
     const cards = await page.$$('.result-item');
     console.log(`✈️ 找到 ${cards.length} 筆航班`);
 
@@ -80,13 +117,18 @@ async function checkPrice() {
 
     for (const card of cards) {
       try {
-        const departTestid = await card.$eval('.is-departure_2a2b .time_cbcc', el => el.getAttribute('data-testid'));
-        const arriveTestid = await card.$eval('.is-arrival_f407 .time_cbcc', el => el.getAttribute('data-testid'));
+        const departTestid = await card.$eval('.is-departure_2a2b .time_cbcc', el =>
+          el.getAttribute('data-testid')
+        );
+        const arriveTestid = await card.$eval('.is-arrival_f407 .time_cbcc', el =>
+          el.getAttribute('data-testid')
+        );
         const departTime = extractTimeFromTestid(departTestid);
         const arriveTime = extractTimeFromTestid(arriveTestid);
 
-        // 從 aria-label 擷取價格
-        const priceAria = await card.$eval('.flight-info.is-v2', el => el.getAttribute('aria-label'));
+        const priceAria = await card.$eval('.flight-info.is-v2', el =>
+          el.getAttribute('aria-label')
+        );
         const priceMatch = priceAria.match(/來回價格：NT\$[\d,]+/);
         let price = null;
         if (priceMatch) {
@@ -100,7 +142,8 @@ async function checkPrice() {
           found = true;
           if (price !== null && price <= PRICE_THRESHOLD) {
             console.log('💰 價格也符合條件，將發送通知');
-            const msg = `🚨 發現低價票！\n出發：${departTime} OSL\n抵達：${arriveTime} TPE\n票價：${price} 元\n👉 ${TRIP_URL}`;
+            const now = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
+            const msg = `🚨 發現低價票！\n出發：${departTime} OSL\n抵達：${arriveTime} TPE\n票價：${price} 元\n查詢時間：${now}\n🔗 https://tw.trip.com/flights`;
             await sendLineNotification(msg);
           } else {
             console.log(`⚠️ 價格太高：${price} > ${PRICE_THRESHOLD}，不發送通知`);
@@ -115,10 +158,8 @@ async function checkPrice() {
     if (!found) {
       console.log('❗ 沒有找到符合條件的航班');
     }
-
   } catch (e) {
     console.log('🚫 整體錯誤：', e);
-    // 如果需要，可以用 page.screenshot() 或 page.content() 來保存錯誤時的狀態
   } finally {
     await browser.close();
     console.log('🧹 Browser 已關閉');
