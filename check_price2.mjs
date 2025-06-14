@@ -95,9 +95,10 @@ async function checkPrice() {
     await page.click('input[data-testid="search_date_depart0"]');
     await waitForTimeout(500);
     await page.evaluate(() => {
-      const target = document.querySelector('[data-date="2025-09-27"]'); // 使用 data-date 替代 aria-label
+      const target = document.querySelector('[data-date="2025-09-27"]');
       if (target) target.click();
     });
+    await waitForTimeout(500); // 額外等待確保日期選擇生效
     console.log('✅ 出發日期選擇完成');
 
     // 等待回程日期輸入框出現
@@ -106,10 +107,15 @@ async function checkPrice() {
     await page.click('input[data-testid="search_date_return0"]');
     await waitForTimeout(500);
     await page.evaluate(() => {
-      const target = document.querySelector('[data-date="2025-10-11"]'); // 使用 data-date 替代 aria-label
+      const target = document.querySelector('[data-date="2025-10-11"]');
       if (target) target.click();
     });
+    await waitForTimeout(500); // 額外等待確保日期選擇生效
     console.log('✅ 回程日期選擇完成');
+
+    // 提交日期選擇（如果需要）
+    await page.click('button[data-testid="date-picker-confirm"]'); // 假設有確認按鈕
+    await waitForTimeout(1000);
 
     // 等待搜尋按鈕出現
     await page.waitForSelector('div.nh_sp-btn2[data-testid="search_btn"]', { timeout: 30000 });
