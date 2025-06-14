@@ -1,6 +1,7 @@
 import puppeteer from 'puppeteer';
 import fetch from 'node-fetch';
 import fs from 'fs/promises';
+import path from 'path';
 
 const LINE_ACCESS_TOKEN = process.env.LINE_ACCESS_TOKEN;
 const TARGET_DEPART = '13:45';
@@ -128,8 +129,8 @@ async function checkPrice() {
       if (noResults) {
         const message = await page.evaluate(el => el.textContent, noResults);
         console.log(`❌ 頁面顯示：${message}`);
-        await fs.writeFile('error_page.html', await page.content());
-        console.log('📄 頁面 HTML 已保存至 error_page.html');
+        await fs.writeFile(path.join(process.cwd(), 'artifacts', 'error_page.html'), await page.content());
+        console.log('📄 頁面 HTML 已保存至 artifacts/error_page.html');
         return;
       }
       throw e; // 如果沒有無結果訊息，拋出原始錯誤
@@ -189,10 +190,12 @@ async function checkPrice() {
     console.log('🚫 整體錯誤：', e);
     // 僅在 page 存在時保存截圖和 HTML
     if (page) {
-      await page.screenshot({ path: 'error_screenshot.png' });
-      console.log('📸 錯誤截圖已保存');
-      await fs.writeFile('error_page.html', await page.content());
-      console.log('📄 頁面 HTML 已保存至 error_page.html');
+      // 確保 artifacts 目錄存在
+      await fs.mkdir(path.join(process.cwd(), 'artifacts'), { recursive: true });
+      await page.screenshot({ path: path.join(process.cwd(), 'artifacts', 'error_screenshot.png') });
+      console.log('📸 錯誤截圖已保存至 artifacts/error_screenshot.png');
+      await fs.writeFile(path.join(process.cwd(), 'artifacts', 'error_page.html'), await page.content());
+      console.log('📄 頁面 HTML 已保存至 artifacts/error_page.html');
     } else {
       console.log('⚠️ page 未定義，無法保存截圖和 HTML');
     }

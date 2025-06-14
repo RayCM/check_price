@@ -19,9 +19,19 @@ jobs:
           node-version: '18'
 
       - name: Install dependencies
-        run: npm install
+        run: npm install puppeteer node-fetch
 
       - name: Run Puppeteer script
         env:
           LINE_ACCESS_TOKEN: ${{ secrets.LINE_ACCESS_TOKEN }}
         run: node check_price2.mjs
+
+      - name: Upload artifacts
+        if: always()  # 無論成功或失敗都上傳
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-artifacts
+          path: |
+            artifacts/error_screenshot.png
+            artifacts/error_page.html
+          retention-days: 7  # 保留 7 天，可根據需要調整
