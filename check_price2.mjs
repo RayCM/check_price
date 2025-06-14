@@ -1,19 +1,22 @@
 import puppeteer from 'puppeteer';
-import fetch from 'node-fetch';  // Node 18+ 內建 fetch，可視情況移除這行
+import dotenv from 'dotenv';
 
-// 直接從環境變數讀取 LINE_ACCESS_TOKEN
+dotenv.config();
+
+// ===== 環境變數設定 =====
 const LINE_ACCESS_TOKEN = process.env.LINE_ACCESS_TOKEN;
-
 const TARGET_DEPART = '13:45';
 const TARGET_ARRIVE = '13:05';
 const PRICE_THRESHOLD = 41000;
 
+// ===== 解析 time 從 data-testid =====
 function extractTimeFromTestid(testid) {
   if (!testid) return '';
   const parts = testid.trim().split(' ');
   return parts.length ? parts[parts.length - 1].slice(0, 5) : '';
 }
 
+// ===== 解析價格字串 "NT$41,107" 轉數字 =====
 function parsePriceText(text) {
   try {
     return parseInt(text.replace('NT$', '').replace(/,/g, '').trim(), 10);
@@ -22,6 +25,7 @@ function parsePriceText(text) {
   }
 }
 
+// ===== 發送 LINE Notify 訊息 =====
 async function sendLineNotification(message) {
   if (!LINE_ACCESS_TOKEN) {
     console.log('⚠️ LINE_ACCESS_TOKEN 未設定，無法發送通知');
@@ -46,6 +50,7 @@ async function sendLineNotification(message) {
   }
 }
 
+// ===== 主程式 =====
 async function checkPrice() {
   console.log('🔍 開始查詢 Trip.com...');
 
